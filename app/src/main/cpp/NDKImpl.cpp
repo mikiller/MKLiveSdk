@@ -94,7 +94,7 @@ jint end(AVFormatContext **inputFormatContext, AVFormatContext *outputFormatCont
 }
 
 JNIEXPORT jint JNICALL
-Java_com_mikiller_ndktest_ndkapplication_NDKImpl_pushRTMP(JNIEnv *env, jobject instance,
+Java_com_mikiller_ndktest_ndkapplication_NDKImpl_pushRTMP(JNIEnv *env, jclass type,
                                                           jstring input_, jstring output_) {
     const char *input = env->GetStringUTFChars(input_, 0);
     const char *output = env->GetStringUTFChars(output_, 0);
