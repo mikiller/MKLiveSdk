@@ -254,6 +254,8 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initFFMpeg(JNIEnv *env, jclass 
 
     av_register_all();
 
+    avformat_network_init();
+
     avformat_alloc_output_context2(&outFormatCxt, NULL, "flv", outputUrl);
 
     if (!(avCodec = avcodec_find_encoder(AV_CODEC_ID_H264))) {
@@ -308,7 +310,7 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initFFMpeg(JNIEnv *env, jclass 
         avStream->codecpar = pCodecParam;
     }
 
-    if((ret = avio_open(&outFormatCxt->pb, outputUrl, AVIO_FLAG_READ_WRITE)) < 0){
+    if((ret = avio_open(&outFormatCxt->pb, outputUrl, AVIO_FLAG_WRITE)) < 0){
         LOGE("failed to open outputUrl: %s", outputUrl);
         return end(NULL, outFormatCxt);
     }
@@ -343,10 +345,48 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodeYUV(JNIEnv *env, jclass t
         *(avFrame->data[2] + i) = *(yuvData + yLength + i * 2);
         *(avFrame->data[1] + i) = *(yuvData + yLength + i * 2 + 1);
     }
+    avFrame->format = AV_PIX_FMT_YUV420P;
+    avFrame->width = yuvWidth;
+    avFrame->height = yuvHeight;
 
+    LOGE("NDK %d", avFrame->flags);
 
+    avPacket.data = NULL;
+    avPacket.size = 0;
+    av_init_packet(&avPacket);
+//    ret = avcodec_encode_video2()
+    ret = avcodec_send_frame(pCodecCxt, avFrame);
+    encGotFrame = avcodec_receive_packet(pCodecCxt, &avPacket);
+    LOGE("NDK send ret %d", ret);
+    LOGE("NDK receive ret %d", encGotFrame);
+    av_frame_free(&avFrame);
+
+    if(encGotFrame == 0){
+        framecnt++;
+        avPacket.stream_index = avStream->index;
+
+        AVRational timeBase = outFormatCxt->streams[0]->time_base;
+        AVRational frameRate = {60, 2};
+        AVRational base = {1, AV_TIME_BASE};
+        int64_t caclDuration = (double)(AV_TIME_BASE)* (1 / av_q2d(frameRate));
+        avPacket.pts = av_rescale_q(framecnt * caclDuration, base, timeBase);
+        avPacket.dts = avPacket.pts;
+        avPacket.duration = av_rescale_q(caclDuration, base, timeBase);
+        avPacket.pos = -1;
+
+        int64_t ptsTime = av_rescale_q(avPacket.dts, timeBase, base);
+        int64_t nowTime = av_gettime() - startTime;
+        if(ptsTime > nowTime){
+            av_usleep(ptsTime - nowTime);
+        }
+
+        ret = av_interleaved_write_frame(outFormatCxt, &avPacket);
+        av_packet_unref(&avPacket);
+        LOGE("NDK ret %d", ret);
+    }
 
     env->ReleaseByteArrayElements(yuvData_, yuvData, 0);
+    return ret;
 }
 
 JNIEXPORT jint JNICALL
