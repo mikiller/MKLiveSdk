@@ -16,4 +16,6 @@ public class NDKImpl {
     public static native int flush();
 
     public static native int close();
+
+    public static native int encodeYUV1(byte[] bytes, byte[] bytesU, byte[] bytesV, int yl, int ul, int vl);
 }

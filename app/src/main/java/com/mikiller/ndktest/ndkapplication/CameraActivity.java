@@ -7,8 +7,11 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.ImageFormat;
 import android.graphics.Matrix;
+import android.graphics.PixelFormat;
+import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.SurfaceTexture;
+import android.graphics.YuvImage;
 import android.hardware.Camera;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
@@ -106,7 +109,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
             previewBuild.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH);
             captureRequest = previewBuild.build();
             try {
-                captureSession.setRepeatingRequest(captureRequest, captureCallback, handler);
+                captureSession.setRepeatingRequest(captureRequest, null, handler);
             } catch (CameraAccessException e) {
                 e.printStackTrace();
             }
@@ -142,18 +145,6 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
 
         }
     };
-
-    @SuppressLint("NewApi")
-    private void startPreview(){
-        try {
-            previewBuild = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-            previewBuild.addTarget(surfaceViewEx.getHolder().getSurface());
-            previewBuild.addTarget(imageReader.getSurface());
-            cameraDevice.createCaptureSession(Arrays.asList(surfaceViewEx.getHolder().getSurface(), imageReader.getSurface()), stateCallback, handler);
-        } catch (CameraAccessException e) {
-            e.printStackTrace();
-        }
-    }
 //    ImageReader imageReader;
 
 
@@ -200,14 +191,15 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
                     }
                 }
                 if(isPlay) {
-                    NDKImpl.encodeYUV(data);
+                    Log.e(CameraActivity.class.getSimpleName(), "" + data.length);
+                    //NDKImpl.encodeYUV(data);
 //                    streamTask = new StreamTask(data);
 //                    streamTask.execute((Void) null);
                 }
             }
         };
 
-        camera = Camera.open(0);
+//        camera = Camera.open(0);
     }
 
     private void initView(){
@@ -224,40 +216,17 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
 
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
-        //initCamera(width, height);
+        initCamera(width, height);
 
-        initFFMpeg();
-        if(camera != null){
-            try {
-                camera.setPreviewCallback(previewCallback);
-                camera.setPreviewDisplay(holder);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-    }
-
-    @Override
-    @SuppressLint("NewApi")
-    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-        Log.e(this.getClass().getSimpleName(), "on surfacechanged");
-//        if(width == previewSize.getWidth() && height == previewSize.getHeight()){
-//            initFFMpeg();
-//            startPreview();
+//        initFFMpeg();
+//        if(camera != null){
+//            try {
+//                camera.setPreviewCallback(previewCallback);
+//                camera.setPreviewDisplay(holder);
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            }
 //        }
-
-        if(camera != null){
-            Camera.Parameters parameters = camera.getParameters();
-            parameters.setPreviewSize(640, 480);
-            parameters.setPictureSize(640, 480);
-            camera.setParameters(parameters);
-            camera.startPreview();
-        }
     }
 
     @SuppressLint("NewApi")
@@ -273,18 +242,37 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
             previewSize = getMaxSize(outputSize); // or use custom size
             if (previewSize == null)
                 return;
-            imageReader = ImageReader.newInstance(previewSize.getWidth(), previewSize.getHeight(), ImageFormat.YUV_420_888, 2);
+            imageReader = ImageReader.newInstance(previewSize.getWidth(), previewSize.getHeight(), ImageFormat.YUV_420_888, 1);
             imageReader.setOnImageAvailableListener(new ImageReader.OnImageAvailableListener() {
                 @Override
                 public void onImageAvailable(ImageReader reader) {
                     Image image = reader.acquireNextImage();
-                    ByteBuffer buffer = image.getPlanes()[0].getBuffer();
-                    byte[] bytes = new byte[buffer.remaining()];
-                    buffer.get(bytes);
-                    //NDKImpl.encodeYUV(bytes);
-                    streamTask = new StreamTask(bytes);
-                    streamTask.execute((Void) null);
+
+                    if(isPlay) {
+//                        ByteBuffer buffer = convertYUV420ToN21(image, false);
+//                        byte[] bytes = new byte[buffer.remaining()];
+//                        buffer.get(bytes);
+//                        NDKImpl.encodeYUV1(bytes, bytesU, bytesV);
+
+//                        NDKImpl.encodeYUV(getDataFromImage(image, COLOR_FormatNV21));
+
+//                        streamTask = new StreamTask(bytes);
+//                        streamTask.execute((Void) null);
+
+//                        ByteBuffer yBuffer = image.getPlanes()[0].getBuffer();
+//                        ByteBuffer uBuffer = image.getPlanes()[1].getBuffer();
+//                        ByteBuffer vBuffer = image.getPlanes()[2].getBuffer();
+//                        byte[] ybytes = new byte[yBuffer.remaining()], ubytes = new byte[uBuffer.remaining()], vbytes = new byte[vBuffer.remaining()];
+//                        yBuffer.get(ybytes);
+//                        uBuffer.get(ubytes);
+//                        vBuffer.get(vbytes);
+//                        NDKImpl.encodeYUV1(ybytes, ubytes, vbytes, ybytes.length, ubytes.length, vbytes.length);
+
+                        NDKImpl.encodeYUV(YUVUtils.convertYUV420ImageToPackedNV21(image));
+                    }
+
                     image.close();
+
                 }
             }, handler);
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
@@ -322,11 +310,54 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
         return maxSize;
     }
 
+
+
+
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+    }
+
+    @Override
+    @SuppressLint("NewApi")
+    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+        Log.e(this.getClass().getSimpleName(), "on surfacechanged");
+        if(width == previewSize.getWidth() && height == previewSize.getHeight()){
+            initFFMpeg();
+            startPreview();
+        }
+
+//        if(camera != null){
+//            Camera.Parameters parameters = camera.getParameters();
+//            parameters.setPreviewSize(CameraActivity.this.width, CameraActivity.this.height);
+//            parameters.setPictureSize(CameraActivity.this.width, CameraActivity.this.height);
+//            camera.setParameters(parameters);
+//            camera.startPreview();
+//        }
+    }
+
+    @SuppressLint("NewApi")
+    private void startPreview(){
+        try {
+            previewBuild = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+            previewBuild.addTarget(surfaceViewEx.getHolder().getSurface());
+            previewBuild.addTarget(imageReader.getSurface());
+            cameraDevice.createCaptureSession(Arrays.asList(surfaceViewEx.getHolder().getSurface(), imageReader.getSurface()), stateCallback, handler);
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @SuppressLint("NewApi")
     private void initFFMpeg() {
         DisplayMetrics dm = getResources().getDisplayMetrics();
-        width = dm.widthPixels;
-        height = dm.heightPixels;
-        NDKImpl.initFFMpeg(outputUrl, width, height);
+//        width = dm.widthPixels;
+//        height = dm.heightPixels;
+        width = 320;
+        height = 240;
+        NDKImpl.initFFMpeg(outputUrl, previewSize.getWidth(), previewSize.getHeight()/*640, 480*/);
+//        NDKImpl.initFFMpeg(outputUrl, width, height/*640, 480*/);
     }
 
 

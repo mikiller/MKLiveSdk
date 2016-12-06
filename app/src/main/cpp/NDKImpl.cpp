@@ -73,7 +73,7 @@ int uvLenght = 0;
 int64_t startTime = 0;
 
 jint end(AVFormatContext **inputFormatContext, AVFormatContext *outputFormatContext) {
-    if (*inputFormatContext != NULL)
+    if (inputFormatContext != NULL)
         avformat_close_input(inputFormatContext);
     if (outputFormatContext && !(outputFormatContext->oformat->flags & AVFMT_NOFILE)) {
         avio_close(outputFormatContext->pb);
@@ -299,6 +299,7 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initFFMpeg(JNIEnv *env, jclass 
         //avStream->codec = pCodecCxt;
     }
 
+
     //test init AVCodecParamters
     {
         if(!(pCodecParam = avcodec_parameters_alloc())){
@@ -332,24 +333,27 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodeYUV(JNIEnv *env, jclass t
     jbyte *yuvData = env->GetByteArrayElements(yuvData_, NULL);
 
     int encGotFrame = 0;
-    int i = 0;
     // TODO
 
     avFrame = av_frame_alloc();
-    uint8_t *frameBuffer = (uint8_t*) av_malloc(av_image_get_buffer_size(pCodecCxt->pix_fmt, yuvWidth, yuvHeight, 1));
+    if(pCodecCxt == NULL){
+        ret = -1;
+        return end(NULL, outFormatCxt);
+    }
+    size_t size = av_image_get_buffer_size(pCodecCxt->pix_fmt, yuvWidth, yuvHeight, 1);
+    uint8_t *frameBuffer = (uint8_t*) av_malloc(size);
     av_image_fill_arrays(avFrame->data, avFrame->linesize, frameBuffer, pCodecCxt->pix_fmt, yuvWidth, yuvHeight, 1);
 
     //convert android camera data from NV21 to yuv420p
     memcpy(avFrame->data[0], yuvData, yLength);
-    for(;i < uvLenght; i++){
+    for(int i = 0 ;i < uvLenght; i++){
         *(avFrame->data[2] + i) = *(yuvData + yLength + i * 2);
         *(avFrame->data[1] + i) = *(yuvData + yLength + i * 2 + 1);
     }
+
     avFrame->format = AV_PIX_FMT_YUV420P;
     avFrame->width = yuvWidth;
     avFrame->height = yuvHeight;
-
-    LOGE("NDK %d", avFrame->flags);
 
     avPacket.data = NULL;
     avPacket.size = 0;
@@ -357,10 +361,7 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodeYUV(JNIEnv *env, jclass t
 //    ret = avcodec_encode_video2()
     ret = avcodec_send_frame(pCodecCxt, avFrame);
     encGotFrame = avcodec_receive_packet(pCodecCxt, &avPacket);
-    LOGE("NDK send ret %d", ret);
-    LOGE("NDK receive ret %d", encGotFrame);
     av_frame_free(&avFrame);
-
     if(encGotFrame == 0){
         framecnt++;
         avPacket.stream_index = avStream->index;
@@ -382,10 +383,82 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodeYUV(JNIEnv *env, jclass t
 
         ret = av_interleaved_write_frame(outFormatCxt, &avPacket);
         av_packet_unref(&avPacket);
-        LOGE("NDK ret %d", ret);
     }
-
     env->ReleaseByteArrayElements(yuvData_, yuvData, 0);
+    return ret;
+}
+
+JNIEXPORT jint JNICALL
+Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodeYUV1(JNIEnv *env, jclass type,
+                                                           jbyteArray yData_, jbyteArray uData_, jbyteArray vData_,
+                                                            jint yl, jint ul, jint vl) {
+    jbyte *yData = env->GetByteArrayElements(yData_, NULL);
+    jbyte *uData = env->GetByteArrayElements(uData_, NULL);
+    jbyte *vData = env->GetByteArrayElements(vData_, NULL);
+
+    int encGotFrame = 0;
+    // TODO
+
+    avFrame = av_frame_alloc();
+    if(pCodecCxt == NULL){
+        ret = -1;
+        return end(NULL, outFormatCxt);
+    }
+    size_t size = av_image_get_buffer_size(pCodecCxt->pix_fmt, yuvWidth, yuvHeight, 1);
+    uint8_t *frameBuffer = (uint8_t*) av_malloc(size);
+    av_image_fill_arrays(avFrame->data, avFrame->linesize, frameBuffer, pCodecCxt->pix_fmt, yuvWidth, yuvHeight, 1);
+
+    //convert android camera data from NV21 to yuv420p
+//    memcpy(avFrame->data[0], yuvData, yLength);
+//    for(int i = 0 ;i < uvLenght; i++){
+//        *(avFrame->data[2] + i) = *(yuvData + yLength + i * 2);
+//        *(avFrame->data[1] + i) = *(yuvData + yLength + i * 2 + 1);
+//    }
+LOGE("aaaaaaaaaa");
+    memcpy(avFrame->data[0], yData, yl);
+    LOGE("NDK linesize: %d, %d, %d", avFrame->linesize[0], avFrame->linesize[1], avFrame->linesize[2]);
+    LOGE("NDK ul: %d", ul);
+    for(int i = 0; i < uvLenght; i++){
+        *(avFrame->data[1] + i) = *(uData+i);
+        *(avFrame->data[2] + i) = *(vData+i);
+    }
+//    memcpy(avFrame->data[1], uData, ul);
+//    memcpy(avFrame->data[2], uData, ul);
+    LOGE("bbbbbbbbbbbbb");
+    avFrame->format = AV_PIX_FMT_YUV420P;
+    avFrame->width = yuvWidth;
+    avFrame->height = yuvHeight;
+
+    avPacket.data = NULL;
+    avPacket.size = 0;
+    av_init_packet(&avPacket);
+//    ret = avcodec_encode_video2()
+    ret = avcodec_send_frame(pCodecCxt, avFrame);
+    encGotFrame = avcodec_receive_packet(pCodecCxt, &avPacket);
+    av_frame_free(&avFrame);
+    if(encGotFrame == 0){
+        framecnt++;
+        avPacket.stream_index = avStream->index;
+
+        AVRational timeBase = outFormatCxt->streams[0]->time_base;
+        AVRational frameRate = {60, 2};
+        AVRational base = {1, AV_TIME_BASE};
+        int64_t caclDuration = (double)(AV_TIME_BASE)* (1 / av_q2d(frameRate));
+        avPacket.pts = av_rescale_q(framecnt * caclDuration, base, timeBase);
+        avPacket.dts = avPacket.pts;
+        avPacket.duration = av_rescale_q(caclDuration, base, timeBase);
+        avPacket.pos = -1;
+
+        int64_t ptsTime = av_rescale_q(avPacket.dts, timeBase, base);
+        int64_t nowTime = av_gettime() - startTime;
+        if(ptsTime > nowTime){
+            av_usleep(ptsTime - nowTime);
+        }
+
+        ret = av_interleaved_write_frame(outFormatCxt, &avPacket);
+        av_packet_unref(&avPacket);
+    }
+    //env->ReleaseByteArrayElements(yuvData_, yuvData, 0);
     return ret;
 }
 
