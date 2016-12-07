@@ -16,13 +16,15 @@ import java.util.List;
  */
 
 public class YUVUtils {
+    private static final String TAG = YUVUtils.class.getSimpleName();
+
     public static final int COLOR_FormatI420 = 1;
     public static final int COLOR_FormatNV21 = 2;
 
     @SuppressLint("NewApi")
     public static byte[] getDataFromImage(Image image, int colorFormat) {
         if (colorFormat != COLOR_FormatI420 && colorFormat != COLOR_FormatNV21) {
-            throw new IllegalArgumentException("only support COLOR_FormatI420 " + "and COLOR_FormatNV21");
+            throw new IllegalArgumentException("only support COLOR_FormatI420 and COLOR_FormatNV21");
         }
         if (!isImageFormatSupported(image)) {
             throw new RuntimeException("can't convert Image to byte array, format " + image.getFormat());
@@ -38,6 +40,7 @@ public class YUVUtils {
         int channelOffset = 0;
         int outputStride = 1;
         for (int i = 0; i < planes.length; i++) {
+//        int i = 0;
             switch (i) {
                 case 0:
                     channelOffset = 0;
@@ -74,26 +77,44 @@ public class YUVUtils {
             int shift = (i == 0) ? 0 : 1;
             int w = width >> shift;
             int h = height >> shift;
-            buffer.position(rowStride * (crop.top >> shift) + pixelStride * (crop.left >> shift));
+            int pos = rowStride * (crop.top >> shift) + pixelStride * (crop.left >> shift);
+            buffer.position(pos);
             for (int row = 0; row < h; row++) {
                 int length;
                 if (pixelStride == 1 && outputStride == 1) {
                     length = w;
+//                    Log.e(TAG, String.format("pos: %d", buffer.position()));
+//                    Log.e(TAG, String.format("offset: %d", channelOffset));
                     buffer.get(data, channelOffset, length);
                     channelOffset += length;
+//                    Log.e(TAG, String.format("new pos: %d", buffer.position()));
                 } else {
                     length = (w - 1) * pixelStride + 1;
+                    if(row > h - 3) {
+                        Log.e(TAG, "length: " + length);
+                        Log.e(TAG, String.format("pos: %d", buffer.position()));
+                        Log.e(TAG, "w: " + w + "pixel: " + pixelStride);
+                    }
                     buffer.get(rowData, 0, length);
+
                     for (int col = 0; col < w; col++) {
                         data[channelOffset] = rowData[col * pixelStride];
                         channelOffset += outputStride;
                     }
                 }
                 if (row < h - 1) {
+//                    if(outputStride == 2){
+//                        Log.e(TAG, String.format("pos: %d", buffer.position()));
+//                    }
                     buffer.position(buffer.position() + rowStride - length);
+//                    if(outputStride == 2){
+//                        Log.e(TAG, String.format("new pos: %d", buffer.position()));
+//                    }
+//                    if(row < 4)
+//                        Log.e(TAG, "buffer new pos:" + buffer.position());
                 }
             }
-            Log.v(CameraActivity.class.getSimpleName(), "Finished reading data from plane " + i);
+//            Log.v(CameraActivity.class.getSimpleName(), "Finished reading data from plane " + i);
         }
         return data;
     }

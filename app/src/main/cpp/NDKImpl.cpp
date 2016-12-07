@@ -275,7 +275,7 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initFFMpeg(JNIEnv *env, jclass 
         pCodecCxt->height = height;
         pCodecCxt->time_base.num = 1;
         pCodecCxt->time_base.den = 30;
-        pCodecCxt->bit_rate = 800 * 1000; //传输速率 rate/kbps
+        pCodecCxt->bit_rate = 200 * 1000; //传输速率 rate/kbps
         pCodecCxt->gop_size = 12; //gop = fps/N ?
         pCodecCxt->max_b_frames = 24; // fps?
         pCodecCxt->qmin = 10; // 1-51, 10-30 is better
@@ -391,7 +391,7 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodeYUV(JNIEnv *env, jclass t
 JNIEXPORT jint JNICALL
 Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodeYUV1(JNIEnv *env, jclass type,
                                                            jbyteArray yData_, jbyteArray uData_, jbyteArray vData_,
-                                                            jint yl, jint ul, jint vl) {
+                                                            jint yl, jint rowStrite, jint pixelStrite) {
     jbyte *yData = env->GetByteArrayElements(yData_, NULL);
     jbyte *uData = env->GetByteArrayElements(uData_, NULL);
     jbyte *vData = env->GetByteArrayElements(vData_, NULL);
@@ -414,17 +414,90 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodeYUV1(JNIEnv *env, jclass 
 //        *(avFrame->data[2] + i) = *(yuvData + yLength + i * 2);
 //        *(avFrame->data[1] + i) = *(yuvData + yLength + i * 2 + 1);
 //    }
-LOGE("aaaaaaaaaa");
-    memcpy(avFrame->data[0], yData, yl);
-    LOGE("NDK linesize: %d, %d, %d", avFrame->linesize[0], avFrame->linesize[1], avFrame->linesize[2]);
-    LOGE("NDK ul: %d", ul);
-    for(int i = 0; i < uvLenght; i++){
-        *(avFrame->data[1] + i) = *(uData+i);
-        *(avFrame->data[2] + i) = *(vData+i);
+//    memcpy(avFrame->data[0], yData, yLength);
+//    for(int i = 0; i < uvLenght; i++){
+//        *(avFrame->data[1] + i) = *(uData+i);
+//        *(avFrame->data[2] + i) = *(vData+i);
+//    }
+
+//    int offset = (rowStrite - yuvWidth);
+//    int dy = 0;
+//    for(int y = 0; y < yLength; y++){
+//        if(y % yuvWidth == 0){
+//            y += offset;
+//            *(avFrame->data[0] + dy++) = *(yData + y);
+//
+//        }else
+//            *(avFrame->data[0] + dy++) = *(yData + y);
+//    }
+//
+//
+//    int length = (yuvWidth - 1) * pixelStrite + 1;
+//    for(int iu = 0; iu < (yuvHeight >> 1); iu++){
+//        for(int ju = 0; ju <= length; ju++){
+//            *(avFrame->data[1] + ju) = *(uData + (iu * rowStrite + ju * pixelStrite));
+//            *(avFrame->data[2] + ju) = *(vData + (iu * rowStrite + ju * pixelStrite));
+//        }
+//    }
+
+
+//    for(int i = 0; i < yuvHeight; i++){
+//        for(int j = 0; j < yuvWidth+1; j++){
+//            int offset = i == 0 ? j + i * rowStrite : j + i*rowStrite + yuvWidth;
+//            if(j ==  yuvWidth && i < 4)
+//                LOGE("rowstrite: %d, offset: %d", rowStrite, offset);
+//            *(avFrame->data[0] + j) = *(yData + offset);
+//            if(j < yuvWidth >> 1 && i < yuvHeight >> 1){
+//                *(avFrame->data[1] + j) = *(uData + j * pixelStrite + i * rowStrite);
+//                *(avFrame->data[2] + j) = *(vData + j * pixelStrite + i * rowStrite);
+//            }
+//
+//        }
+//    }
+    uint8_t *d = avFrame->data[0];
+    jbyte *p = yData;
+    for(int row = 0; row < yuvHeight; row++){
+        int length = yuvWidth;
+        memcpy(d, p, length);
+        d += length;
+        p += length;
+//        if(row < yuvHeight >> 1){
+//            for(int col = 0; col < yuvWidth >> 1; col++){
+//                *(avFrame->data[1] + col) = *(uData + col * pixelStrite + row * rowStrite);
+//                *(avFrame->data[2] + col) = *(vData + col * pixelStrite + row * rowStrite);
+//            }
+//        }
+        if(row < yuvHeight -1){
+            p = p + rowStrite - length;
+        }
     }
-//    memcpy(avFrame->data[1], uData, ul);
-//    memcpy(avFrame->data[2], uData, ul);
-    LOGE("bbbbbbbbbbbbb");
+    uint8_t *u = avFrame->data[2];
+    jbyte *q = uData;
+    uint8_t *v = avFrame->data[1];
+    jbyte *r = vData;
+    int offset = 0;
+    for (int row = 0; row < (yuvHeight / 2); row++) {
+        int length = ((yuvWidth/2) - 1) * pixelStrite + 1;
+
+        for (int col = 0; col < (yuvWidth/2); col++) {
+//            memset(u, rowData_u[col * pixelStrite], 1);
+//            memset(v, rowData_v[col * pixelStrite], 1);
+            *(avFrame->data[1] + offset) = *(uData + col * pixelStrite);
+            *(avFrame->data[2] + offset++) = *(vData + col * pixelStrite);
+
+            //u = (uint8_t *)rowData_u[col * pixelStrite];
+            //v = (uint8_t *)rowData_v[col * pixelStrite];
+        }
+        if (row < (yuvHeight/2) - 1) {
+            uData += rowStrite;
+            vData += rowStrite;
+        }
+    }
+
+
+
+//    memcpy(avFrame->data[1], uData, length);
+//    memcpy(avFrame->data[2], vData, length);
     avFrame->format = AV_PIX_FMT_YUV420P;
     avFrame->width = yuvWidth;
     avFrame->height = yuvHeight;
@@ -435,7 +508,7 @@ LOGE("aaaaaaaaaa");
 //    ret = avcodec_encode_video2()
     ret = avcodec_send_frame(pCodecCxt, avFrame);
     encGotFrame = avcodec_receive_packet(pCodecCxt, &avPacket);
-    av_frame_free(&avFrame);
+
     if(encGotFrame == 0){
         framecnt++;
         avPacket.stream_index = avStream->index;
@@ -457,6 +530,7 @@ LOGE("aaaaaaaaaa");
 
         ret = av_interleaved_write_frame(outFormatCxt, &avPacket);
         av_packet_unref(&avPacket);
+        av_frame_free(&avFrame);
     }
     //env->ReleaseByteArrayElements(yuvData_, yuvData, 0);
     return ret;

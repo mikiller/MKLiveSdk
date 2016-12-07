@@ -254,21 +254,21 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
 //                        buffer.get(bytes);
 //                        NDKImpl.encodeYUV1(bytes, bytesU, bytesV);
 
-//                        NDKImpl.encodeYUV(getDataFromImage(image, COLOR_FormatNV21));
+//                        NDKImpl.encodeYUV(YUVUtils.getDataFromImage(image, YUVUtils.COLOR_FormatNV21));
 
 //                        streamTask = new StreamTask(bytes);
 //                        streamTask.execute((Void) null);
 
-//                        ByteBuffer yBuffer = image.getPlanes()[0].getBuffer();
-//                        ByteBuffer uBuffer = image.getPlanes()[1].getBuffer();
-//                        ByteBuffer vBuffer = image.getPlanes()[2].getBuffer();
-//                        byte[] ybytes = new byte[yBuffer.remaining()], ubytes = new byte[uBuffer.remaining()], vbytes = new byte[vBuffer.remaining()];
-//                        yBuffer.get(ybytes);
-//                        uBuffer.get(ubytes);
-//                        vBuffer.get(vbytes);
-//                        NDKImpl.encodeYUV1(ybytes, ubytes, vbytes, ybytes.length, ubytes.length, vbytes.length);
+                        ByteBuffer yBuffer = image.getPlanes()[0].getBuffer();
+                        ByteBuffer uBuffer = image.getPlanes()[1].getBuffer();
+                        ByteBuffer vBuffer = image.getPlanes()[2].getBuffer();
+                        byte[] ybytes = new byte[yBuffer.remaining()], ubytes = new byte[uBuffer.remaining()], vbytes = new byte[vBuffer.remaining()];
+                        yBuffer.get(ybytes);
+                        uBuffer.get(ubytes);
+                        vBuffer.get(vbytes);
+                        NDKImpl.encodeYUV1(ybytes, ubytes, vbytes, ybytes.length, image.getPlanes()[1].getRowStride(), image.getPlanes()[1].getPixelStride());
 
-                        NDKImpl.encodeYUV(YUVUtils.convertYUV420ImageToPackedNV21(image));
+//                        NDKImpl.encodeYUV(YUVUtils.convertYUV420ImageToPackedNV21(image));
                     }
 
                     image.close();
@@ -302,7 +302,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
             return maxSize;
         maxSize = sizes[0];
         for(Size size : sizes){
-            if(size.getWidth() * size.getHeight() > maxSize.getWidth() * maxSize.getHeight()) {
+            if(size.getWidth() * size.getHeight() < maxSize.getWidth() * maxSize.getHeight()) {
                 Log.e(CameraActivity.class.getSimpleName(), "width: " + size.getWidth() + " height: " + size.getHeight());
                 maxSize = size;
             }
