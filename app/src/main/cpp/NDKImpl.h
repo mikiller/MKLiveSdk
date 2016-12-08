@@ -46,7 +46,7 @@ JNIEXPORT jint JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodeYU
  * Signature: ([B)I
  */
 JNIEXPORT jint JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodeYUV1
-        (JNIEnv *, jclass, jbyteArray, jbyteArray, jbyteArray, jint, jint, jint);
+        (JNIEnv *, jclass, jbyteArray, jbyteArray, jbyteArray, jint, jint);
 
 
 /*
@@ -64,6 +64,7 @@ JNIEXPORT jint JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_flush
  */
 JNIEXPORT jint JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_close
   (JNIEnv *, jclass);
+
 
 #ifdef __cplusplus
 }

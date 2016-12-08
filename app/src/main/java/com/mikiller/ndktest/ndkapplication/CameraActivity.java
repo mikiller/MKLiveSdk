@@ -43,6 +43,7 @@ import android.widget.ImageButton;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
 
 import butterknife.BindView;
@@ -192,7 +193,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
                 }
                 if(isPlay) {
                     Log.e(CameraActivity.class.getSimpleName(), "" + data.length);
-                    //NDKImpl.encodeYUV(data);
+                    NDKImpl.encodeYUV(data);
 //                    streamTask = new StreamTask(data);
 //                    streamTask.execute((Void) null);
                 }
@@ -249,26 +250,17 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
                     Image image = reader.acquireNextImage();
 
                     if(isPlay) {
-//                        ByteBuffer buffer = convertYUV420ToN21(image, false);
-//                        byte[] bytes = new byte[buffer.remaining()];
-//                        buffer.get(bytes);
-//                        NDKImpl.encodeYUV1(bytes, bytesU, bytesV);
-
 //                        NDKImpl.encodeYUV(YUVUtils.getDataFromImage(image, YUVUtils.COLOR_FormatNV21));
-
+                        ByteBuffer[] yuvBuffer = new ByteBuffer[image.getPlanes().length];
+                        byte[][] yuvbytes = new byte[image.getPlanes().length][];
+                        for(int i = 0; i < image.getPlanes().length; i++){
+                            yuvBuffer[i] = image.getPlanes()[i].getBuffer();
+                            yuvbytes[i] = new byte[yuvBuffer[i].remaining()];
+                            yuvBuffer[i].get(yuvbytes[i]);
+                        }
+                        NDKImpl.encodeYUV1(yuvbytes[0], yuvbytes[1], yuvbytes[2], image.getPlanes()[1].getRowStride(), image.getPlanes()[1].getPixelStride());
 //                        streamTask = new StreamTask(bytes);
 //                        streamTask.execute((Void) null);
-
-                        ByteBuffer yBuffer = image.getPlanes()[0].getBuffer();
-                        ByteBuffer uBuffer = image.getPlanes()[1].getBuffer();
-                        ByteBuffer vBuffer = image.getPlanes()[2].getBuffer();
-                        byte[] ybytes = new byte[yBuffer.remaining()], ubytes = new byte[uBuffer.remaining()], vbytes = new byte[vBuffer.remaining()];
-                        yBuffer.get(ybytes);
-                        uBuffer.get(ubytes);
-                        vBuffer.get(vbytes);
-                        NDKImpl.encodeYUV1(ybytes, ubytes, vbytes, ybytes.length, image.getPlanes()[1].getRowStride(), image.getPlanes()[1].getPixelStride());
-
-//                        NDKImpl.encodeYUV(YUVUtils.convertYUV420ImageToPackedNV21(image));
                     }
 
                     image.close();
@@ -364,6 +356,8 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
     @Override
     protected void onPause() {
         super.onPause();
+       // NDKImpl.flush();
+        NDKImpl.close();
     }
 
     @SuppressLint("NewApi")
