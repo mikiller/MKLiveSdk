@@ -18,4 +18,6 @@ public class NDKImpl {
     public static native int close();
 
     public static native int encodeYUV1(byte[] bytes, byte[] bytesU, byte[] bytesV, int rowStrite, int pixelStrite);
+
+    public static native void initStartTime();
 }

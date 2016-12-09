@@ -4,6 +4,7 @@
 
 #ifndef _Included_com_mikiller_ndktest_ndkapplication_NDKImpl
 #define _Included_com_mikiller_ndktest_ndkapplication_NDKImpl
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -65,6 +66,8 @@ JNIEXPORT jint JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_flush
 JNIEXPORT jint JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_close
   (JNIEnv *, jclass);
 
+JNIEXPORT void JNICALL
+        Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initStartTime(JNIEnv , jclass);
 
 #ifdef __cplusplus
 }

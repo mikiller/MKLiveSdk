@@ -269,7 +269,7 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initFFMpeg(JNIEnv *env, jclass 
         return end(NULL, outFormatCxt);
 
     AVDictionary *param = NULL;
-    av_dict_set(&param, "preset", "ultrafast", 0);
+    av_dict_set(&param, "preset", "slow", 0);
     av_dict_set(&param, "tune", "zerolatency", 0);
     if ((ret = avcodec_open2(pCodecCxt, avCodec, &param)) < 0) {
         LOGE("open encoder failed");
@@ -290,8 +290,8 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initFFMpeg(JNIEnv *env, jclass 
         pCodecCxt->flags |= CODEC_FLAG_GLOBAL_HEADER;
 
     avformat_write_header(outFormatCxt, NULL);
-    avStream->time_base.den = 1200;
-    startTime = av_gettime();
+    avStream->time_base.den = 900;
+//    startTime = av_gettime();
 
     avFrame = av_frame_alloc();
     bufferSize = av_image_get_buffer_size(pCodecCxt->pix_fmt, yuvWidth, yuvHeight, 1);
@@ -310,7 +310,7 @@ int initCodecContext() {
     pCodecCxt->width = yuvWidth;
     pCodecCxt->height = yuvHeight;
     pCodecCxt->time_base.num = 1;
-    pCodecCxt->time_base.den = 30;
+    pCodecCxt->time_base.den = 25;
     pCodecCxt->bit_rate = 500 * 1000; //传输速率 rate/kbps
     pCodecCxt->gop_size = 12; //gop = fps/N ?
     pCodecCxt->max_b_frames = 24; // fps?
@@ -341,8 +341,7 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodeYUV(JNIEnv *env, jclass t
         ret = -1;
         return end(NULL, outFormatCxt);
     }
-//    size_t size = av_image_get_buffer_size(pCodecCxt->pix_fmt, yuvWidth, yuvHeight, 1);
-//    uint8_t *frameBuffer = (uint8_t *) av_malloc(size);
+
     av_image_fill_arrays(avFrame->data, avFrame->linesize, frameBuffer, pCodecCxt->pix_fmt,
                          yuvWidth, yuvHeight, 1);
 
@@ -379,9 +378,7 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodeYUV1(JNIEnv *env, jclass 
                          yuvWidth, yuvHeight, 1);
 
     analyzeYUVData(yData, uData, vData, rowStride, pixelStride);
-
     writeFrame();
-
     env->ReleaseByteArrayElements(yData_, yData, 0);
     env->ReleaseByteArrayElements(uData_, uData, 0);
     env->ReleaseByteArrayElements(vData_, vData, 0);
@@ -404,38 +401,49 @@ void analyzeYUVData(jbyte *y, jbyte *u, jbyte *v, jint rowStride, jint pixelStri
             v += rowStride;
         }
     }
+    framecnt++;
+    avFrame->pts = framecnt;
 }
 
 void writeFrame() {
     avFrame->format = AV_PIX_FMT_YUV420P;
     avFrame->width = yuvWidth;
     avFrame->height = yuvHeight;
+//    avFrame->pts = framecnt++ * 1000 / 25;
 
     avPacket.data = NULL;
     avPacket.size = 0;
     av_init_packet(&avPacket);
-//    ret = avcodec_encode_video2()
-    ret = avcodec_send_frame(pCodecCxt, avFrame);
-    int encGotFrame = avcodec_receive_packet(pCodecCxt, &avPacket);
+    int g = 0;
+    int encGotFrame = avcodec_encode_video2(pCodecCxt, &avPacket, avFrame, &g);
+//    ret = avcodec_send_frame(pCodecCxt, avFrame);
+//    int encGotFrame = avcodec_receive_packet(pCodecCxt, &avPacket);
 
-    if (encGotFrame == 0) {
-        framecnt++;
-        avPacket.stream_index = outFormatCxt->streams[0]->index;
-
-        AVRational timeBase = outFormatCxt->streams[0]->time_base;
-        AVRational frameRate = {60, 2};
-//        AVRational frameRate = outFormatCxt->streams[0]->r_frame_rate;
-        AVRational base = {1, AV_TIME_BASE};
-        int64_t caclDuration = (double) (AV_TIME_BASE)  / av_q2d(frameRate);
-        avPacket.pts = av_rescale_q_rnd(framecnt * caclDuration, base, timeBase, AV_ROUND_NEAR_INF);
-        LOGE("pts %d", avPacket.pts);
-        avPacket.dts = avPacket.pts;
-        avPacket.duration = av_rescale_q(caclDuration, base, timeBase);
+    if (g) {
+//        framecnt++;
+//        avPacket.stream_index = outFormatCxt->streams[0]->index;
+//
+//        AVRational timeBase = outFormatCxt->streams[0]->time_base;
+        AVRational frameRate = {25, 1};
+////        AVRational frameRate = outFormatCxt->streams[0]->r_frame_rate;
+//        AVRational base = {1, AV_TIME_BASE};
+//        int64_t caclDuration = (double) (AV_TIME_BASE)  / av_q2d(frameRate);
+////        avPacket.pts = av_rescale_q_rnd(framecnt * caclDuration, base, timeBase, AV_ROUND_NEAR_INF);
+//        avPacket.pts = av_rescale_q(framecnt * caclDuration, base, timeBase);
+//        avPacket.dts = avPacket.pts;
+//        avPacket.duration = av_rescale_q(caclDuration, base, timeBase);
+//        avPacket.pos = -1;
+        avPacket.pts = av_rescale(avPacket.pts, outFormatCxt->streams[0]->time_base.den, 18);
+        avPacket.dts = av_rescale(avPacket.dts, outFormatCxt->streams[0]->time_base.den, 18);
+        avPacket.duration = (AV_TIME_BASE)  / av_q2d(frameRate) / 1000;
         avPacket.pos = -1;
 
-        int64_t ptsTime = av_rescale_q(avPacket.dts, timeBase, base);
+        int64_t ptsTime = av_rescale_q(avPacket.dts, outFormatCxt->streams[0]->time_base, (AVRational){1, 25});
         int64_t nowTime = av_gettime() - startTime;
+//        LOGE("starttime1: %lld", startTime);
+//        LOGE("ptstime: %lld, nowtime: %lld", ptsTime, nowTime);
         if (ptsTime > nowTime) {
+            LOGE("sleeptime: %lld", ptsTime-nowTime);
             av_usleep(ptsTime - nowTime);
         }
 
@@ -499,5 +507,11 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_close(JNIEnv *env, jclass type)
     av_write_trailer(outFormatCxt);
     end(NULL, outFormatCxt);
     return 0;
+}
+
+JNIEXPORT void JNICALL
+Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initStartTime(JNIEnv , jclass){
+    startTime = av_gettime();
+    LOGE("starttime: %lld", startTime);
 }
 }

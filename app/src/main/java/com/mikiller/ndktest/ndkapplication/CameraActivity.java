@@ -211,6 +211,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 isPlay = isChecked;
+                NDKImpl.initStartTime();
             }
         });
     }
@@ -293,13 +294,13 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
         if(sizes == null)
             return maxSize;
         maxSize = sizes[0];
-        for(Size size : sizes){
-            if(size.getWidth() * size.getHeight() < maxSize.getWidth() * maxSize.getHeight()) {
-                Log.e(CameraActivity.class.getSimpleName(), "width: " + size.getWidth() + " height: " + size.getHeight());
-                maxSize = size;
-            }
-        }
-        return maxSize;
+//        for(Size size : sizes){
+//            if(size.getWidth() * size.getHeight() > maxSize.getWidth() * maxSize.getHeight()) {
+//                Log.e(CameraActivity.class.getSimpleName(), "w: " + size.getWidth() + " h: " + size.getHeight());
+//                maxSize = size;
+//            }
+//        }
+        return maxSize = new Size(240, 160);
     }
 
 
