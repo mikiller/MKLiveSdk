@@ -4,7 +4,6 @@
 
 #ifndef _Included_com_mikiller_ndktest_ndkapplication_NDKImpl
 #define _Included_com_mikiller_ndktest_ndkapplication_NDKImpl
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -40,16 +39,6 @@ JNIEXPORT jint JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initFFMp
 JNIEXPORT jint JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodeYUV
   (JNIEnv *, jclass, jbyteArray);
 
-
-/*
- * Class:     com_mikiller_ndktest_ndkapplication_NDKImpl
- * Method:    encodeYUV
- * Signature: ([B)I
- */
-JNIEXPORT jint JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodeYUV1
-        (JNIEnv *, jclass, jbyteArray, jbyteArray, jbyteArray, jint, jint);
-
-
 /*
  * Class:     com_mikiller_ndktest_ndkapplication_NDKImpl
  * Method:    flush
@@ -66,8 +55,29 @@ JNIEXPORT jint JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_flush
 JNIEXPORT jint JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_close
   (JNIEnv *, jclass);
 
-JNIEXPORT void JNICALL
-        Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initStartTime(JNIEnv , jclass);
+/*
+ * Class:     com_mikiller_ndktest_ndkapplication_NDKImpl
+ * Method:    encodeYUV1
+ * Signature: ([B[B[BII)I
+ */
+JNIEXPORT jint JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodeYUV1
+  (JNIEnv *, jclass, jbyteArray, jbyteArray, jbyteArray, jint, jint);
+
+/*
+ * Class:     com_mikiller_ndktest_ndkapplication_NDKImpl
+ * Method:    encodePCM
+ * Signature: ([B)I
+ */
+JNIEXPORT jint JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodePCM
+  (JNIEnv *, jclass, jbyteArray, jint);
+
+/*
+ * Class:     com_mikiller_ndktest_ndkapplication_NDKImpl
+ * Method:    initStartTime
+ * Signature: ()V
+ */
+JNIEXPORT void JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initStartTime
+  (JNIEnv *, jclass);
 
 #ifdef __cplusplus
 }

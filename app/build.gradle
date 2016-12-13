@@ -43,6 +43,9 @@ android {
             jni.srcDirs = []
             jniLibs.srcDirs = ['libs']
     }
+    lintOptions{
+        abortOnError false
+    }
 }
 
 dependencies {

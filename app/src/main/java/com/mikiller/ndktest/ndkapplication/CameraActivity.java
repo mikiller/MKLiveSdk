@@ -23,8 +23,12 @@ import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.StreamConfigurationMap;
+import android.media.AudioDeviceCallback;
+import android.media.AudioFormat;
+import android.media.AudioRecord;
 import android.media.Image;
 import android.media.ImageReader;
+import android.media.MediaRecorder;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
@@ -42,6 +46,7 @@ import android.widget.CompoundButton;
 import android.widget.ImageButton;
 
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -74,6 +79,15 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
     CaptureRequest.Builder previewBuild;
     CaptureRequest captureRequest;
     CameraCaptureSession captureSession;
+
+    AudioRecord audioRecord;
+    int audioBufSize = 0;
+    int sampleRate = 44100;
+    int audioSource = MediaRecorder.AudioSource.MIC;
+    int channelConfig = AudioFormat.CHANNEL_IN_STEREO; //立体声 声道
+    int audioFormat = AudioFormat.ENCODING_PCM_FLOAT;
+    int audioBitRate = 320*1000;
+
 
     ImageReader imageReader;
     Handler handler;
@@ -211,6 +225,13 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 isPlay = isChecked;
+                if(audioRecord != null) {
+                    if (isPlay)
+                        audioRecord.startRecording();
+                    else{
+                        audioRecord.stop();
+                    }
+                }
                 NDKImpl.initStartTime();
             }
         });
@@ -219,7 +240,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
         initCamera(width, height);
-
+        initAudioRecord();
 //        initFFMpeg();
 //        if(camera != null){
 //            try {
@@ -252,6 +273,12 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
 
                     if(isPlay) {
 //                        NDKImpl.encodeYUV(YUVUtils.getDataFromImage(image, YUVUtils.COLOR_FormatNV21));
+                        byte[] audioData = new byte[audioBufSize];
+                        if(audioRecord.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) {
+                            if(getAudioData(audioData) > 0)
+                                NDKImpl.encodePCM(audioData, audioBufSize);
+                        }
+
                         ByteBuffer[] yuvBuffer = new ByteBuffer[image.getPlanes().length];
                         byte[][] yuvbytes = new byte[image.getPlanes().length][];
                         for(int i = 0; i < image.getPlanes().length; i++){
@@ -300,10 +327,35 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
 //                maxSize = size;
 //            }
 //        }
-        return maxSize = new Size(240, 160);
+        return maxSize = new Size(1280, 720);
     }
 
+    private int getAudioData(byte[] audioData){
+        int ret = audioRecord.read(audioData, 0, audioBufSize );
+        if(ret ==  AudioRecord.ERROR_INVALID_OPERATION || ret == AudioRecord.ERROR_BAD_VALUE){
+            Log.e(CameraActivity.class.getSimpleName(), "get audio failed");
 
+        }
+        for(int i = 0; i < 10; i++){
+            if(audioData[i] != 0)
+                return ret;
+
+        }
+        return 0;
+    }
+
+    private void initAudioRecord(){
+        audioBufSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat);
+        if(audioBufSize == AudioRecord.ERROR_BAD_VALUE){
+            Log.e(CameraActivity.class.getSimpleName(), "audio param is wrong");
+            return;
+        }
+        audioRecord = new AudioRecord(audioSource, sampleRate, channelConfig, audioFormat, audioBufSize);
+        if(audioRecord.getState() == AudioRecord.STATE_UNINITIALIZED){
+            Log.e(CameraActivity.class.getSimpleName(), "init audio failed");
+            return;
+        }
+    }
 
 
 
