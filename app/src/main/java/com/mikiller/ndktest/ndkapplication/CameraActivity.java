@@ -48,12 +48,15 @@ import android.widget.ImageButton;
 import java.io.IOException;
 import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
+import java.nio.ShortBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import butterknife.Unbinder;
+
+import static android.media.AudioRecord.READ_BLOCKING;
 
 /**
  * Created by Mikiller on 2016/12/2.
@@ -84,8 +87,8 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
     int audioBufSize = 0;
     int sampleRate = 44100;
     int audioSource = MediaRecorder.AudioSource.MIC;
-    int channelConfig = AudioFormat.CHANNEL_IN_STEREO; //立体声 声道
-    int audioFormat = AudioFormat.ENCODING_PCM_FLOAT;
+    int channelConfig = AudioFormat.CHANNEL_IN_MONO; //立体声 声道
+    int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
     int audioBitRate = 320*1000;
 
 
@@ -221,13 +224,16 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
         surfaceViewEx.getHolder().addCallback(this);
         surfaceViewEx.getHolder().setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
 
+        final Thread audioThread = new Thread(new AudioRunnable());
         ckb_play.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 isPlay = isChecked;
                 if(audioRecord != null) {
-                    if (isPlay)
+                    if (isPlay) {
                         audioRecord.startRecording();
+                        audioThread.start();
+                    }
                     else{
                         audioRecord.stop();
                     }
@@ -272,13 +278,8 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
                     Image image = reader.acquireNextImage();
 
                     if(isPlay) {
+//                        encodePCM();
 //                        NDKImpl.encodeYUV(YUVUtils.getDataFromImage(image, YUVUtils.COLOR_FormatNV21));
-                        byte[] audioData = new byte[audioBufSize];
-                        if(audioRecord.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) {
-                            if(getAudioData(audioData) > 0)
-                                NDKImpl.encodePCM(audioData, audioBufSize);
-                        }
-
                         ByteBuffer[] yuvBuffer = new ByteBuffer[image.getPlanes().length];
                         byte[][] yuvbytes = new byte[image.getPlanes().length][];
                         for(int i = 0; i < image.getPlanes().length; i++){
@@ -328,20 +329,6 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
 //            }
 //        }
         return maxSize = new Size(1280, 720);
-    }
-
-    private int getAudioData(byte[] audioData){
-        int ret = audioRecord.read(audioData, 0, audioBufSize );
-        if(ret ==  AudioRecord.ERROR_INVALID_OPERATION || ret == AudioRecord.ERROR_BAD_VALUE){
-            Log.e(CameraActivity.class.getSimpleName(), "get audio failed");
-
-        }
-        for(int i = 0; i < 10; i++){
-            if(audioData[i] != 0)
-                return ret;
-
-        }
-        return 0;
     }
 
     private void initAudioRecord(){
@@ -433,4 +420,58 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
         unbinder.unbind();
     }
 
+    private class AudioRunnable implements Runnable{
+
+        @Override
+        public void run() {
+            Log.e(CameraActivity.class.getSimpleName(), "isPlay: " + isPlay);
+            while(isPlay){
+                byte[] audioData = new byte[audioBufSize];
+                encodePCM();
+
+            }
+        }
+    }
+
+    private void encodePCM() {
+        ShortBuffer audioBuf = ShortBuffer.allocate(audioBufSize);
+        if (audioRecord.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) {
+            byte[] sample = getAudioData(audioBuf);
+
+            if (sample != null && (sample[0] != 0 && sample[1] != 0)) {
+//                        for(int i = 0; i < 4; i++){
+//                            if(temp[i] != 0f) {
+//                                sample = new byte[ret * 2];
+//                                break;
+//                            }
+//
+//                        }
+                NDKImpl.encodePCM(sample, sample.length);
+            }
+        }
+    }
+
+    @SuppressLint("NewApi")
+    private byte[] getAudioData(ShortBuffer audioData){
+        byte[] sample = null;
+        int ret = audioRecord.read(audioData.array(), 0, audioData.capacity());
+        if(ret ==  AudioRecord.ERROR_INVALID_OPERATION || ret == AudioRecord.ERROR_BAD_VALUE){
+            Log.e(CameraActivity.class.getSimpleName(), "get audio failed");
+            return sample;
+        }
+
+        audioData.limit(ret);
+
+        short[] temp = audioData.array();
+        sample = new byte[ret * 2];
+        for(int index = 0; index < ret; index++){
+            short2byte(sample, temp[index], index);
+        }
+        return sample;
+    }
+
+    private void short2byte(byte[] b, short s, int i){
+        b[i + 1] = (byte) (s >> 8);
+        b[i] = (byte) s;
+    }
 }

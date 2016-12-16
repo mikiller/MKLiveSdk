@@ -22,18 +22,22 @@
 #include "NDKImpl.h"
 #include "PrivateUtils.h"
 
+
 extern "C" {
 #include "libavutil/log.h"
 #include "libavcodec/avcodec.h"
 #include "libavutil/avutil.h"
 #include "libavutil/imgutils.h"
 #include "libavutil/time.h"
+#include "libavutil/fifo.h"
 #include "libavformat/avformat.h"
 #include "libavfilter/avfilter.h"
 #include "libavdevice/avdevice.h"
 #include "libpostproc/postprocess.h"
 #include "libswscale/swscale.h"
 #include "libswresample/swresample.h"
+#include "libavutil/avassert.h"
+
 
 JNIEXPORT jstring JNICALL
 Java_com_mikiller_ndktest_ndkapplication_NDKImpl_helloWorld(JNIEnv *env, jobject instance,
@@ -269,7 +273,9 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initFFMpeg(JNIEnv *env, jclass 
         return end(NULL, outFormatCxt);
     }
 
-    if(!(avAudioCodec = avcodec_find_encoder(AV_CODEC_ID_AAC))){
+
+    if (!(avAudioCodec = avcodec_find_encoder(AV_CODEC_ID_AAC))) {
+//    if (!(avAudioCodec = avcodec_find_encoder_by_name("libfdk_aac"))) {
         LOGE("init aac encoder failed");
         ret = -1;
         return end(NULL, outFormatCxt);
@@ -278,7 +284,7 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initFFMpeg(JNIEnv *env, jclass 
     if (initVideoCodecContext() < 0)
         return end(NULL, outFormatCxt);
 
-    if(initAudioCodecContext() < 0){
+    if (initAudioCodecContext() < 0) {
         return end(NULL, outFormatCxt);
     }
 
@@ -295,13 +301,13 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initFFMpeg(JNIEnv *env, jclass 
         return end(NULL, outFormatCxt);
     }
 
-    AVStream * avStream = initAvStream();
-    if(!avStream){
+    AVStream *avStream = initAvStream();
+    if (!avStream) {
         return end(NULL, outFormatCxt);
     }
 
-    AVStream * audioStream = initAudioStream();
-    if(!audioStream){
+    AVStream *audioStream = initAudioStream();
+    if (!audioStream) {
         return end(NULL, outFormatCxt);
     }
 
@@ -313,6 +319,9 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initFFMpeg(JNIEnv *env, jclass 
     if (outFormatCxt->oformat->flags & AVFMT_GLOBALHEADER)
         pVideoCodecCxt->flags |= CODEC_FLAG_GLOBAL_HEADER;
 
+    if (outFormatCxt->oformat->flags & AVFMT_GLOBALHEADER)
+        pAudioCodecCxt->flags |= CODEC_FLAG_GLOBAL_HEADER;
+
     avformat_write_header(outFormatCxt, NULL);
     //avStream->time_base.den = 900;
 //    startTime = av_gettime();
@@ -322,8 +331,12 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initFFMpeg(JNIEnv *env, jclass 
     frameBuffer = (uint8_t *) av_malloc(frameBufSize);
 
     avAudioFrame = av_frame_alloc();
-    audioBufSize = av_samples_get_buffer_size(NULL, pAudioCodecCxt->channels, pAudioCodecCxt->frame_size, pAudioCodecCxt->sample_fmt, 1);
+    audioBufSize = av_samples_get_buffer_size(NULL, pAudioCodecCxt->channels,
+                                              pAudioCodecCxt->frame_size,
+                                              pAudioCodecCxt->sample_fmt, 1);
     audioBuffer = (uint8_t *) av_malloc(audioBufSize);
+
+    //initSwrContext();
 
     env->ReleaseStringUTFChars(outputUrl_, outputUrl);
     return 0;
@@ -349,8 +362,8 @@ int initVideoCodecContext() {
     return 0;
 }
 
-int initAudioCodecContext(){
-    if(!(pAudioCodecCxt = avcodec_alloc_context3(avAudioCodec))){
+int initAudioCodecContext() {
+    if (!(pAudioCodecCxt = avcodec_alloc_context3(avAudioCodec))) {
         LOGE("init avAudioContext failed");
         return -1;
     }
@@ -367,7 +380,7 @@ int initAudioCodecContext(){
 
 }
 
-AVStream* initAvStream() {
+AVStream *initAvStream() {
     AVStream *avStream = NULL;
     if (!(avStream = avformat_new_stream(outFormatCxt, avVideoCodec))) {
         LOGE("create avStream failed");
@@ -378,9 +391,9 @@ AVStream* initAvStream() {
     return avStream;
 }
 
-AVStream* initAudioStream(){
-    AVStream * avStream = NULL;
-    if(!(avStream = avformat_new_stream(outFormatCxt, avAudioCodec))){
+AVStream *initAudioStream() {
+    AVStream *avStream = NULL;
+    if (!(avStream = avformat_new_stream(outFormatCxt, avAudioCodec))) {
         LOGE("create audioStream failed");
         ret = -1;
         return NULL;
@@ -388,6 +401,39 @@ AVStream* initAudioStream(){
     avcodec_parameters_from_context(avStream->codecpar, pAudioCodecCxt);
     return avStream;
 }
+
+//void initSwrContext(){
+//    AVFifoBuffer **fifo = NULL;
+//    swrCxt = swr_alloc();
+//
+//#if LIBSWRESAMPLE_VERSION_MINOR >= 17
+//    av_opt_set_int(swrCxt, "inputChannel", pAudioCodecCxt->channels, 0);
+//    av_opt_set_int(swrCxt, "outputChannel", pAudioCodecCxt->channels, 0);
+//    av_opt_set_int(swrCxt, "inputSampleRate", pAudioCodecCxt->sample_rate, 0);
+//    av_opt_set_int(swrCxt, "outputSampleRate", pAudioCodecCxt->sample_rate, 0);
+//    av_opt_set_sample_fmt(swrCxt, "inputFmt", AV_SAMPLE_FMT_S16P, 0);
+//    av_opt_set_sample_fmt(swrCxt, "outputFmt", pAudioCodecCxt->sample_fmt, 0);
+//#else
+//    swrCxt = swr_alloc_set_opts(swrCxt,
+//                                pAudioCodecCxt->channel_layout,
+//                                pAudioCodecCxt->sample_fmt,
+//                                pAudioCodecCxt->sample_rate,
+//                                pAudioCodecCxt->channel_layout,
+//                                AV_SAMPLE_FMT_S16P,
+//                                pAudioCodecCxt->sample_rate,
+//                                0, NULL);
+//#endif
+//    swr_init(swrCxt);
+//    for(int i = 0; i < pAudioCodecCxt->channels; i++){
+//        fifo[i] = av_fifo_alloc(20*1000);
+//    }
+//    int ret = 0;
+//    int linesize = 0;
+//    int nbsample = 0;
+//    ret = av_samples_alloc_array_and_samples(&outData, &linesize, pAudioCodecCxt->channels, nbsample, pAudioCodecCxt->sample_fmt, 0);
+//    nbsample = av_rescale_rnd(swr_get_delay(swrCxt, pAudioCodecCxt->sample_rate), pAudioCodecCxt->sample_rate, pAudioCodecCxt->sample_rate, AV_ROUND_UP);
+//
+//}
 
 JNIEXPORT jint JNICALL
 Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodeYUV(JNIEnv *env, jclass type,
@@ -401,7 +447,8 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodeYUV(JNIEnv *env, jclass t
         return end(NULL, outFormatCxt);
     }
 
-    av_image_fill_arrays(avVideoFrame->data, avVideoFrame->linesize, frameBuffer, pVideoCodecCxt->pix_fmt,
+    av_image_fill_arrays(avVideoFrame->data, avVideoFrame->linesize, frameBuffer,
+                         pVideoCodecCxt->pix_fmt,
                          yuvWidth, yuvHeight, 1);
 
     //convert android camera data from NV21 to yuv420p
@@ -433,7 +480,8 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodeYUV1(JNIEnv *env, jclass 
         return end(NULL, outFormatCxt);
     }
     memset(frameBuffer, 0, frameBufSize);
-    av_image_fill_arrays(avVideoFrame->data, avVideoFrame->linesize, frameBuffer, pVideoCodecCxt->pix_fmt,
+    av_image_fill_arrays(avVideoFrame->data, avVideoFrame->linesize, frameBuffer,
+                         pVideoCodecCxt->pix_fmt,
                          yuvWidth, yuvHeight, 1);
 
     analyzeYUVData(yData, uData, vData, rowStride, pixelStride);
@@ -444,14 +492,14 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodeYUV1(JNIEnv *env, jclass 
     return ret;
 }
 
-void analyzeYUVData(jbyte *y, jbyte *u, jbyte *v, jint rowStride, jint pixelStride){
+void analyzeYUVData(jbyte *y, jbyte *u, jbyte *v, jint rowStride, jint pixelStride) {
     int offset = 0;
     int length = yuvWidth;
     for (int row = 0; row < yuvHeight; row++) {
         memcpy((avVideoFrame->data[0] + length), y, yuvWidth);
         length += yuvWidth;
         y += rowStride;
-        if(row < yuvHeight >> 1){
+        if (row < yuvHeight >> 1) {
             for (int col = 0; col < yuvWidth >> 1; col++) {
                 *(avVideoFrame->data[1] + offset) = *(u + col * pixelStride);
                 *(avVideoFrame->data[2] + offset++) = *(v + col * pixelStride);
@@ -481,17 +529,21 @@ void writeFrame() {
     if (encGotFrame == 0) {
         avVideoPacket.stream_index = outFormatCxt->streams[0]->index;
         AVRational frameRate = {25, 1};
-        avVideoPacket.pts = av_rescale(avVideoPacket.pts, outFormatCxt->streams[0]->time_base.den, 20);
-        avVideoPacket.dts = av_rescale(avVideoPacket.dts, outFormatCxt->streams[0]->time_base.den, 20);
-        avVideoPacket.duration = (AV_TIME_BASE)  / av_q2d(frameRate) / outFormatCxt->streams[0]->time_base.den;
+        avVideoPacket.pts = av_rescale(avVideoPacket.pts, outFormatCxt->streams[0]->time_base.den,
+                                       20);
+        avVideoPacket.dts = av_rescale(avVideoPacket.dts, outFormatCxt->streams[0]->time_base.den,
+                                       20);
+        avVideoPacket.duration =
+                (AV_TIME_BASE) / av_q2d(frameRate) / outFormatCxt->streams[0]->time_base.den;
         avVideoPacket.pos = -1;
 //        LOGE("NDK pkt pts: %lld, dts: %lld", avVideoPacket.pts, avVideoPacket.dts);
-        int64_t ptsTime = av_rescale_q(avVideoPacket.dts, outFormatCxt->streams[0]->time_base, (AVRational){1, 25});
+        int64_t ptsTime = av_rescale_q(avVideoPacket.dts, outFormatCxt->streams[0]->time_base,
+                                       (AVRational) {1, 25});
         int64_t nowTime = av_gettime() - startTime;
 //        LOGE("starttime1: %lld", startTime);
 //        LOGE("ptstime: %lld, nowtime: %lld", ptsTime, nowTime);
         if (ptsTime > nowTime) {
-            LOGE("sleeptime: %lld", ptsTime-nowTime);
+            LOGE("sleeptime: %lld", ptsTime - nowTime);
             av_usleep(ptsTime - nowTime);
         }
 
@@ -505,20 +557,31 @@ JNIEXPORT jint JNICALL
 Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodePCM(JNIEnv *env, jclass type,
                                                            jbyteArray bytes_, jint length) {
     jbyte *bytes = env->GetByteArrayElements(bytes_, NULL);
-
+//    uint8_t *temp = (uint8_t *) malloc(4);
+//    memset(temp, 0, 4);
+//    uint8_t *sample = (uint8_t *) malloc(length * 2);
+//    memset(bytes, 0, length * 4);
     // TODO
     memset(audioBuffer, 0, audioBufSize);
-    avcodec_fill_audio_frame(avAudioFrame, pAudioCodecCxt->channels, pAudioCodecCxt->sample_fmt, audioBuffer, audioBufSize, 1);
+    avcodec_fill_audio_frame(avAudioFrame, pAudioCodecCxt->channels, pAudioCodecCxt->sample_fmt,
+                             audioBuffer, audioBufSize, 1);
     avAudioFrame->data[0] = audioBuffer;
-    memcpy(avAudioFrame->data[0], bytes, length);
-
+    avAudioFrame->data[1] = audioBuffer;
+//    for(int i = 0; i < length; i++){
+//        memcpy(temp, &floats[i], 4);
+//        for(int j = 3; j >=0; j--){
+//            *(bytes+i*4 + (3 - j)) = temp[j];
+//        }
+//    }
+    memcpy(avAudioFrame->data[0], bytes, audioBufSize);
+    memcpy(avAudioFrame->data[1], bytes, audioBufSize);
     writeAudioFrame();
 
     env->ReleaseByteArrayElements(bytes_, bytes, 0);
     return 0;
 }
 
-void writeAudioFrame(){
+void writeAudioFrame() {
     avAudioFrame->nb_samples = pAudioCodecCxt->frame_size;
     avAudioFrame->format = pAudioCodecCxt->sample_fmt;
     avAudioFrame->pts = ++audiocnt;
@@ -526,18 +589,207 @@ void writeAudioFrame(){
     avAudioPacket.data = NULL;
     avAudioPacket.size = 0;
     av_init_packet(&avAudioPacket);
-
     int got_audio = 0;
-    avcodec_send_frame(pAudioCodecCxt, avAudioFrame);
-    got_audio = avcodec_receive_packet(pAudioCodecCxt, &avAudioPacket);
+    avcodec_encode_audio3(pAudioCodecCxt, &avAudioPacket, avAudioFrame, &got_audio);
+//    avcodec_send_frame(pAudioCodecCxt, avAudioFrame);
+//    got_audio = avcodec_receive_packet(pAudioCodecCxt, &avAudioPacket);
 
-    if(got_audio == 0){
+    if (got_audio == 0) {
         avAudioPacket.stream_index = outFormatCxt->streams[1]->index;
         av_interleaved_write_frame(outFormatCxt, &avAudioPacket);
         av_packet_unref(&avAudioPacket);
     }
 
 }
+
+int avcodec_encode_audio3(AVCodecContext *avctx,
+                          AVPacket *avpkt,
+                          const AVFrame *frame,
+                          int *got_packet_ptr) {
+    AVFrame *extended_frame = NULL;
+    AVFrame *padded_frame = NULL;
+    int ret;
+    AVPacket user_pkt = *avpkt;
+    int needs_realloc = !user_pkt.data;
+
+    *got_packet_ptr = 0;
+
+    if (!avctx->codec->encode2) {
+        av_log(avctx, AV_LOG_ERROR, "This encoder requires using the avcodec_send_frame() API.\n");
+        return AVERROR(ENOSYS);
+    }
+
+    if (!(avctx->codec->capabilities & AV_CODEC_CAP_DELAY) && !frame) {
+        av_packet_unref(avpkt);
+        av_init_packet(avpkt);
+        return 0;
+    }
+
+/* ensure that extended_data is properly set */
+    if (frame && !frame->extended_data) {
+        if (av_sample_fmt_is_planar(avctx->sample_fmt) &&
+            avctx->channels > AV_NUM_DATA_POINTERS) {
+            av_log(avctx, AV_LOG_ERROR, "Encoding to a planar sample format, "
+                           "with more than %d channels, but extended_data is not set.\n",
+                   AV_NUM_DATA_POINTERS);
+            return AVERROR(EINVAL);
+        }
+        av_log(avctx, AV_LOG_WARNING, "extended_data is not set.\n");
+
+        extended_frame = av_frame_alloc();
+        if (!extended_frame)
+            return AVERROR(ENOMEM);
+
+        memcpy(extended_frame, frame, sizeof(AVFrame));
+        extended_frame->extended_data = extended_frame->data;
+        frame = extended_frame;
+    }
+
+/* extract audio service type metadata */
+    if (frame) {
+        AVFrameSideData *sd = av_frame_get_side_data(frame, AV_FRAME_DATA_AUDIO_SERVICE_TYPE);
+        if (sd && sd->size >= sizeof(enum AVAudioServiceType))
+            avctx->audio_service_type = *(enum AVAudioServiceType *) sd->data;
+    }
+
+/* check for valid frame size */
+    if (frame) {
+        if (avctx->codec->capabilities & AV_CODEC_CAP_SMALL_LAST_FRAME) {
+            if (frame->nb_samples > avctx->frame_size) {
+                av_log(avctx, AV_LOG_ERROR,
+                       "more samples than frame size (avcodec_encode_audio2)\n");
+                ret = AVERROR(EINVAL);
+                goto end;
+            }
+        } else if (!(avctx->codec->capabilities & AV_CODEC_CAP_VARIABLE_FRAME_SIZE)) {
+            if (frame->nb_samples < avctx->frame_size
+                /*&& !avctx->internal->last_audio_frame*/) {
+                ret = pad_last_frame(avctx, &padded_frame, frame);
+                if (ret < 0)
+                    goto end;
+
+                frame = padded_frame;
+                //avctx->internal->last_audio_frame = 1;
+            }
+
+            if (frame->nb_samples != avctx->frame_size) {
+                av_log(avctx, AV_LOG_ERROR,
+                       "nb_samples (%d) != frame_size (%d) (avcodec_encode_audio2)\n",
+                       frame->nb_samples, avctx->frame_size);
+                ret = AVERROR(EINVAL);
+                goto end;
+            }
+        }
+    }
+
+    av_assert0(avctx->codec->encode2);
+//    ret = aac_encode_frame(avctx, avpkt, frame, got_packet_ptr);
+    ret = avctx->codec->encode2(avctx, avpkt, frame, got_packet_ptr);
+    if (!ret) {
+        if (*got_packet_ptr) {
+            if (!(avctx->codec->capabilities & AV_CODEC_CAP_DELAY)) {
+                if (avpkt->pts == AV_NOPTS_VALUE)
+                    avpkt->pts = frame->pts;
+                if (!avpkt->duration)
+                    avpkt->duration = ff_samples_to_time_base(avctx,
+                                                              frame->nb_samples);
+            }
+            avpkt->dts = avpkt->pts;
+        } else {
+            avpkt->size = 0;
+        }
+    }
+    if (avpkt->data /*&& avpkt->data == avctx->internal->byte_buffer*/) {
+        needs_realloc = 0;
+        if (user_pkt.data) {
+            if (user_pkt.size >= avpkt->size) {
+                memcpy(user_pkt.data, avpkt->data, avpkt->size);
+            } else {
+                av_log(avctx, AV_LOG_ERROR, "Provided packet is too small, needs to be %d\n",
+                       avpkt->size);
+                avpkt->size = user_pkt.size;
+                ret = -1;
+            }
+            avpkt->buf = user_pkt.buf;
+            avpkt->data = user_pkt.data;
+        } else {
+            if (av_dup_packet(avpkt) < 0) {
+                ret = AVERROR(ENOMEM);
+            }
+        }
+    }
+
+    if (!ret) {
+        if (needs_realloc && avpkt->data) {
+            ret = av_buffer_realloc(&avpkt->buf, avpkt->size + AV_INPUT_BUFFER_PADDING_SIZE);
+            if (ret >= 0)
+                avpkt->data = avpkt->buf->data;
+        }
+
+        avctx->frame_number++;
+    }
+
+    if (ret < 0 || !*got_packet_ptr) {
+        av_packet_unref(avpkt);
+        av_init_packet(avpkt);
+        goto end;
+    }
+
+/* NOTE: if we add any audio encoders which output non-keyframe packets,
+ *       this needs to be moved to the encoders, but for now we can do it
+ *       here to simplify things */
+    avpkt->flags |= AV_PKT_FLAG_KEY;
+
+    end:
+    av_frame_free(&padded_frame);
+    av_free(extended_frame);
+
+#if FF_API_AUDIOENC_DELAY
+    avctx->delay = avctx->initial_padding;
+#endif
+
+    return ret;
+}
+
+
+
+static int pad_last_frame(AVCodecContext *s, AVFrame **dst, const AVFrame *src)
+{
+    AVFrame *frame = NULL;
+    int ret;
+
+    if (!(frame = av_frame_alloc()))
+        return AVERROR(ENOMEM);
+
+    frame->format         = src->format;
+    frame->channel_layout = src->channel_layout;
+    av_frame_set_channels(frame, av_frame_get_channels(src));
+    frame->nb_samples     = s->frame_size;
+    ret = av_frame_get_buffer(frame, 32);
+    if (ret < 0)
+        goto fail;
+
+    ret = av_frame_copy_props(frame, src);
+    if (ret < 0)
+        goto fail;
+
+    if ((ret = av_samples_copy(frame->extended_data, src->extended_data, 0, 0,
+                               src->nb_samples, s->channels, s->sample_fmt)) < 0)
+        goto fail;
+    if ((ret = av_samples_set_silence(frame->extended_data, src->nb_samples,
+                                      frame->nb_samples - src->nb_samples,
+                                      s->channels, s->sample_fmt)) < 0)
+        goto fail;
+
+    *dst = frame;
+
+    return 0;
+
+    fail:
+    av_frame_free(&frame);
+    return ret;
+}
+
 
 JNIEXPORT jint JNICALL
 Java_com_mikiller_ndktest_ndkapplication_NDKImpl_flush(JNIEnv *env, jclass type) {
@@ -596,7 +848,7 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_close(JNIEnv *env, jclass type)
 }
 
 JNIEXPORT void JNICALL
-Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initStartTime(JNIEnv *, jclass){
+Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initStartTime(JNIEnv *, jclass) {
     startTime = av_gettime();
 //    framecnt = 0;
     LOGE("starttime: %lld", startTime);

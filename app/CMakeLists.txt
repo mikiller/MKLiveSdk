@@ -8,6 +8,8 @@ set(ffmpegDir-v7a "${CMAKE_SOURCE_DIR}/libs/armeabi-v7a")
 cmake_minimum_required(VERSION 3.4.1)
 
 include_directories(libs/include)
+include_directories(src/main/cpp/)
+include_directories(src/main/cpp/utils)
 link_directories(${ffmpegDir})
 link_directories(${ffmpegDir-v7a})
 
