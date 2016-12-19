@@ -69,7 +69,7 @@ JNIEXPORT jint JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodeYU
  * Signature: ([B)I
  */
 JNIEXPORT jint JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodePCM
-  (JNIEnv *, jclass, jbyteArray, jint);
+  (JNIEnv *, jclass, jfloatArray, jint);
 
 /*
  * Class:     com_mikiller_ndktest_ndkapplication_NDKImpl

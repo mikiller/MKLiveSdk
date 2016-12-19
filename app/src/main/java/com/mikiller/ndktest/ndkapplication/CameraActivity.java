@@ -48,6 +48,7 @@ import android.widget.ImageButton;
 import java.io.IOException;
 import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
 import java.nio.ShortBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -87,8 +88,8 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
     int audioBufSize = 0;
     int sampleRate = 44100;
     int audioSource = MediaRecorder.AudioSource.MIC;
-    int channelConfig = AudioFormat.CHANNEL_IN_MONO; //立体声 声道
-    int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
+    int channelConfig = AudioFormat.CHANNEL_IN_STEREO; //立体声 声道
+    int audioFormat = AudioFormat.ENCODING_PCM_FLOAT;
     int audioBitRate = 320*1000;
 
 
@@ -280,6 +281,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
                     if(isPlay) {
 //                        encodePCM();
 //                        NDKImpl.encodeYUV(YUVUtils.getDataFromImage(image, YUVUtils.COLOR_FormatNV21));
+//                        Log.e(CameraActivity.class.getSimpleName(), "yuv starttime: " + System.currentTimeMillis());
                         ByteBuffer[] yuvBuffer = new ByteBuffer[image.getPlanes().length];
                         byte[][] yuvbytes = new byte[image.getPlanes().length][];
                         for(int i = 0; i < image.getPlanes().length; i++){
@@ -288,6 +290,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
                             yuvBuffer[i].get(yuvbytes[i]);
                         }
                         NDKImpl.encodeYUV1(yuvbytes[0], yuvbytes[1], yuvbytes[2], image.getPlanes()[1].getRowStride(), image.getPlanes()[1].getPixelStride());
+//                        Log.e(CameraActivity.class.getSimpleName(), "yuv endtime: " + System.currentTimeMillis());
 //                        streamTask = new StreamTask(bytes);
 //                        streamTask.execute((Void) null);
                     }
@@ -434,44 +437,41 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
     }
 
     private void encodePCM() {
-        ShortBuffer audioBuf = ShortBuffer.allocate(audioBufSize);
+        FloatBuffer audioBuf = FloatBuffer.allocate(audioBufSize);
         if (audioRecord.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) {
-            byte[] sample = getAudioData(audioBuf);
-
-            if (sample != null && (sample[0] != 0 && sample[1] != 0)) {
-//                        for(int i = 0; i < 4; i++){
-//                            if(temp[i] != 0f) {
-//                                sample = new byte[ret * 2];
-//                                break;
-//                            }
-//
-//                        }
+//            Log.e(CameraActivity.class.getSimpleName(), "starttime: " + System.currentTimeMillis());
+//            byte[] sample = getAudioData(audioBuf);
+            float[] sample = getAudioData(audioBuf);
+            if (sample != null && (sample[2] != 0 && sample[3] != 0)) {
                 NDKImpl.encodePCM(sample, sample.length);
+//                Log.e(CameraActivity.class.getSimpleName(), "endtime: " + System.currentTimeMillis());
             }
         }
     }
 
     @SuppressLint("NewApi")
-    private byte[] getAudioData(ShortBuffer audioData){
-        byte[] sample = null;
-        int ret = audioRecord.read(audioData.array(), 0, audioData.capacity());
+    private float[] getAudioData(FloatBuffer audioData){
+        float[] sample = null;
+        int ret = audioRecord.read(audioData.array(), 0, audioData.capacity(), READ_BLOCKING);
         if(ret ==  AudioRecord.ERROR_INVALID_OPERATION || ret == AudioRecord.ERROR_BAD_VALUE){
             Log.e(CameraActivity.class.getSimpleName(), "get audio failed");
             return sample;
         }
 
         audioData.limit(ret);
-
-        short[] temp = audioData.array();
-        sample = new byte[ret * 2];
-        for(int index = 0; index < ret; index++){
-            short2byte(sample, temp[index], index);
-        }
-        return sample;
+        return audioData.array();
+//        float[] temp = audioData.array();
+//        sample = new byte[ret * 4];
+//        for(int index = 0; index < ret; index++){
+//            float2byte(sample, temp[index], index);
+//        }
+//        return sample;
     }
 
-    private void short2byte(byte[] b, short s, int i){
-        b[i + 1] = (byte) (s >> 8);
-        b[i] = (byte) s;
+    private void float2byte(byte[] b, float s, int i){
+        int fInt = Float.floatToIntBits(s);
+        for(int j = 0; j < 4; j++){
+            b[i * 4 + j] = (byte)((fInt >> (j * 8)) & 0xff);
+        }
     }
 }

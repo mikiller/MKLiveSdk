@@ -19,7 +19,7 @@ public class NDKImpl {
 
     public static native int encodeYUV1(byte[] bytes, byte[] bytesU, byte[] bytesV, int rowStrite, int pixelStrite);
 
-    public static native int encodePCM(byte[] bytes, int length);
+    public static native int encodePCM(float[] floats, int length);
 
     public static native void initStartTime();
 }
