@@ -429,7 +429,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
         public void run() {
             Log.e(CameraActivity.class.getSimpleName(), "isPlay: " + isPlay);
             while(isPlay){
-                byte[] audioData = new byte[audioBufSize];
+                //byte[] audioData = new byte[audioBufSize];
                 encodePCM();
 
             }
@@ -457,7 +457,6 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
             Log.e(CameraActivity.class.getSimpleName(), "get audio failed");
             return sample;
         }
-
         audioData.limit(ret);
         return audioData.array();
 //        float[] temp = audioData.array();

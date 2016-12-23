@@ -99,6 +99,11 @@ jint end(AVFormatContext **inputFormatContext, AVFormatContext *outputFormatCont
         LOGE("unknow error");
         return -1;
     }
+    startTime = 0;
+    framecnt = 2;
+    audiocnt = 0;
+    yLength = 0;
+    uvLenght = 0;
     return ret;
 }
 
@@ -281,6 +286,9 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initFFMpeg(JNIEnv *env, jclass 
         return end(NULL, outFormatCxt);
     }
 
+    outFormatCxt->oformat->video_codec = avVideoCodec->id;
+    outFormatCxt->oformat->audio_codec = avAudioCodec->id;
+
     if (initVideoCodecContext() < 0)
         return end(NULL, outFormatCxt);
 
@@ -291,6 +299,16 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initFFMpeg(JNIEnv *env, jclass 
     AVDictionary *param = NULL;
     av_dict_set(&param, "preset", "ultrafast"/*"slow"*/, 0);
     av_dict_set(&param, "tune", "zerolatency", 0);
+
+    AVStream *avStream = initAvStream();
+    if (!avStream) {
+        return end(NULL, outFormatCxt);
+    }
+    AVStream *audioStream = initAudioStream();
+    if (!audioStream) {
+        return end(NULL, outFormatCxt);
+    }
+
     if ((ret = avcodec_open2(pVideoCodecCxt, avVideoCodec, &param)) < 0) {
         LOGE("open encoder failed");
         return end(NULL, outFormatCxt);
@@ -301,26 +319,16 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initFFMpeg(JNIEnv *env, jclass 
         return end(NULL, outFormatCxt);
     }
 
-    AVStream *avStream = initAvStream();
-    if (!avStream) {
-        return end(NULL, outFormatCxt);
-    }
-
-    AVStream *audioStream = initAudioStream();
-    if (!audioStream) {
-        return end(NULL, outFormatCxt);
-    }
 
     if ((ret = avio_open(&outFormatCxt->pb, outputUrl, AVIO_FLAG_WRITE)) < 0) {
         LOGE("failed to open outputUrl: %s", outputUrl);
         return end(NULL, outFormatCxt);
     }
 
-    if (outFormatCxt->oformat->flags & AVFMT_GLOBALHEADER)
+    if (outFormatCxt->oformat->flags & AVFMT_GLOBALHEADER){
         pVideoCodecCxt->flags |= CODEC_FLAG_GLOBAL_HEADER;
-
-    if (outFormatCxt->oformat->flags & AVFMT_GLOBALHEADER)
         pAudioCodecCxt->flags |= CODEC_FLAG_GLOBAL_HEADER;
+    }
 
     avformat_write_header(outFormatCxt, NULL);
     //avStream->time_base.den = 900;
@@ -331,12 +339,17 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initFFMpeg(JNIEnv *env, jclass 
     frameBuffer = (uint8_t *) av_malloc(frameBufSize);
 
     avAudioFrame = av_frame_alloc();
+    avAudioFrame->pts = 0;
     audioBufSize = av_samples_get_buffer_size(NULL, pAudioCodecCxt->channels,
                                               pAudioCodecCxt->frame_size,
                                               pAudioCodecCxt->sample_fmt, 0);
     audioBuffer = (uint8_t *) av_malloc(audioBufSize);
 
-    //initSwrContext();
+//    inputSample = (uint8_t *) malloc(sizeof(uint8_t));
+//    av_samples_alloc(&inputSample, NULL, pAudioCodecCxt->channels, pAudioCodecCxt->frame_size, AV_SAMPLE_FMT_FLT, 0);
+//    outData = (uint8_t **) calloc(pAudioCodecCxt->channels, sizeof(uint8_t*));
+//    av_samples_alloc(outData, NULL, pAudioCodecCxt->channels, pAudioCodecCxt->frame_size, pAudioCodecCxt->sample_fmt, 0);
+    initSwrContext();
 
     env->ReleaseStringUTFChars(outputUrl_, outputUrl);
     return 0;
@@ -359,6 +372,7 @@ int initVideoCodecContext() {
     pVideoCodecCxt->max_b_frames = 23; // fps?
     pVideoCodecCxt->qmin = 10; // 1-51, 10-30 is better
     pVideoCodecCxt->qmax = 30; // 1-51, 10-30 is better
+    pVideoCodecCxt->profile = FF_PROFILE_H264_MAIN;
     return 0;
 }
 
@@ -369,10 +383,11 @@ int initAudioCodecContext() {
     }
 
     pAudioCodecCxt->sample_fmt = avAudioCodec->sample_fmts[0];
-    pAudioCodecCxt->sample_rate = 44100;
-    pAudioCodecCxt->channel_layout = AV_CH_LAYOUT_STEREO;
+    pAudioCodecCxt->channel_layout = av_get_default_channel_layout(2);
     pAudioCodecCxt->channels = av_get_channel_layout_nb_channels(pAudioCodecCxt->channel_layout);
-    pAudioCodecCxt->bit_rate = 96 * 1000;
+    pAudioCodecCxt->profile = FF_PROFILE_AAC_MAIN;
+    pAudioCodecCxt->strict_std_compliance = FF_COMPLIANCE_EXPERIMENTAL;
+    pAudioCodecCxt->bit_rate = 32 * 1000;
     pAudioCodecCxt->time_base = {1, pAudioCodecCxt->sample_rate};
     return 0;
 //    pAudioCodecCxt->codec_id = outFormatCxt->oformat->audio_codec;
@@ -398,32 +413,43 @@ AVStream *initAudioStream() {
         ret = -1;
         return NULL;
     }
+//    pAudioCodecCxt->sample_rate = pAudioCodecCxt->codec->supported_samplerates[0];
+    pAudioCodecCxt->sample_rate = 44100;
     avcodec_parameters_from_context(avStream->codecpar, pAudioCodecCxt);
     return avStream;
 }
 
-//void initSwrContext(){
+void initSwrContext(){
 //    AVFifoBuffer **fifo = NULL;
-//    swrCxt = swr_alloc();
-//
-//#if LIBSWRESAMPLE_VERSION_MINOR >= 17
-//    av_opt_set_int(swrCxt, "inputChannel", pAudioCodecCxt->channels, 0);
-//    av_opt_set_int(swrCxt, "outputChannel", pAudioCodecCxt->channels, 0);
-//    av_opt_set_int(swrCxt, "inputSampleRate", pAudioCodecCxt->sample_rate, 0);
-//    av_opt_set_int(swrCxt, "outputSampleRate", pAudioCodecCxt->sample_rate, 0);
-//    av_opt_set_sample_fmt(swrCxt, "inputFmt", AV_SAMPLE_FMT_S16P, 0);
-//    av_opt_set_sample_fmt(swrCxt, "outputFmt", pAudioCodecCxt->sample_fmt, 0);
-//#else
+    swrCxt = swr_alloc();
+
+    fifo = av_audio_fifo_alloc(AV_SAMPLE_FMT_FLTP, pAudioCodecCxt->channels, pAudioCodecCxt->frame_size);
 //    swrCxt = swr_alloc_set_opts(swrCxt,
 //                                pAudioCodecCxt->channel_layout,
 //                                pAudioCodecCxt->sample_fmt,
 //                                pAudioCodecCxt->sample_rate,
 //                                pAudioCodecCxt->channel_layout,
-//                                AV_SAMPLE_FMT_S16P,
+//                                AV_SAMPLE_FMT_FLT,
 //                                pAudioCodecCxt->sample_rate,
 //                                0, NULL);
-//#endif
-//    swr_init(swrCxt);
+#if LIBSWRESAMPLE_VERSION_MINOR >= 17
+    av_opt_set_int(swrCxt, "inputChannel", pAudioCodecCxt->channels, 0);
+    av_opt_set_int(swrCxt, "outputChannel", pAudioCodecCxt->channels, 0);
+    av_opt_set_int(swrCxt, "inputSampleRate", pAudioCodecCxt->sample_rate, 0);
+    av_opt_set_int(swrCxt, "outputSampleRate", pAudioCodecCxt->sample_rate, 0);
+    av_opt_set_sample_fmt(swrCxt, "inputFmt", AV_SAMPLE_FMT_FLT, 0);
+    av_opt_set_sample_fmt(swrCxt, "outputFmt", pAudioCodecCxt->sample_fmt, 0);
+#else
+    swrCxt = swr_alloc_set_opts(swrCxt,
+                                pAudioCodecCxt->channel_layout,
+                                pAudioCodecCxt->sample_fmt,
+                                pAudioCodecCxt->sample_rate,
+                                pAudioCodecCxt->channel_layout,
+                                AV_SAMPLE_FMT_FLT,
+                                pAudioCodecCxt->sample_rate,
+                                0, NULL);
+#endif
+    swr_init(swrCxt);
 //    for(int i = 0; i < pAudioCodecCxt->channels; i++){
 //        fifo[i] = av_fifo_alloc(20*1000);
 //    }
@@ -432,8 +458,8 @@ AVStream *initAudioStream() {
 //    int nbsample = 0;
 //    ret = av_samples_alloc_array_and_samples(&outData, &linesize, pAudioCodecCxt->channels, nbsample, pAudioCodecCxt->sample_fmt, 0);
 //    nbsample = av_rescale_rnd(swr_get_delay(swrCxt, pAudioCodecCxt->sample_rate), pAudioCodecCxt->sample_rate, pAudioCodecCxt->sample_rate, AV_ROUND_UP);
-//
-//}
+
+}
 
 JNIEXPORT jint JNICALL
 Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodeYUV(JNIEnv *env, jclass type,
@@ -547,7 +573,7 @@ void writeFrame() {
             av_usleep(ptsTime - nowTime);
         }
 
-        ret = av_write_frame(outFormatCxt, &avVideoPacket);
+        ret = av_interleaved_write_frame(outFormatCxt, &avVideoPacket);
         av_packet_unref(&avVideoPacket);
         //av_frame_free(&avVideoFrame);
     }
@@ -566,11 +592,91 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodePCM(JNIEnv *env, jclass t
     avAudioFrame->nb_samples = pAudioCodecCxt->frame_size;
     avcodec_fill_audio_frame(avAudioFrame, pAudioCodecCxt->channels, pAudioCodecCxt->sample_fmt,
                              audioBuffer, audioBufSize, 0);
+//    memset(inputSample, 0, length);
 
-    for(int i = 0; i < length / 8; i++){
-        memcpy(avAudioFrame->data[0]+i*4, &floats[i*8], 4);
-        memcpy(avAudioFrame->data[1]+i*4, &floats[i*8+4], 4);
+//    memset(outData[0], 0, pAudioCodecCxt->frame_size);
+//    memset(outData[1], 0, pAudioCodecCxt->frame_size);
+
+    uint8_t ** outData = NULL;
+    uint8_t *inputSample = NULL;
+
+    inputSample = (uint8_t *) malloc(sizeof(uint8_t));
+    av_samples_alloc(&inputSample, NULL, pAudioCodecCxt->channels, pAudioCodecCxt->frame_size, AV_SAMPLE_FMT_FLT, 0);
+
+    outData = (uint8_t **) calloc(pAudioCodecCxt->channels, sizeof(uint8_t*));
+    av_samples_alloc(outData, NULL, pAudioCodecCxt->channels, pAudioCodecCxt->frame_size, pAudioCodecCxt->sample_fmt, 0);
+
+//    for(int i = 0; i < length / 8 - 4; i++){
+////        memcpy(avAudioFrame->data[0]+i*4, &floats[i*8], 4);
+////        memcpy(avAudioFrame->data[1]+i*4, &floats[i*8+4], 4);
+//        memcpy(convert_samples[0] + i*4, &floats[i*8], 4);
+//        memcpy(convert_samples[1] + i*4, &floats[i*8 + 4], 4);
+//    }
+
+    memcpy(inputSample, floats, length);
+    int convertSize = swr_convert(swrCxt, outData, 1024 + 256,
+                                  (const uint8_t **) &inputSample, length/8);
+
+    av_audio_fifo_write(fifo, (void **) outData, convertSize);
+    av_free(&outData[0]);
+    free(outData);
+    av_free(&inputSample[0]);
+    free(inputSample);
+
+    while(av_audio_fifo_size(fifo) > avAudioFrame->nb_samples){
+        int readSize = av_audio_fifo_read(fifo, (void **) avAudioFrame->data, avAudioFrame->nb_samples);
+        writeAudioFrame();
     }
+
+//    if(av_audio_fifo_size(fifo) < avAudioFrame->nb_samples)
+//        av_audio_fifo_realloc(fifo, av_audio_fifo_size(fifo)+(length / 8));
+//    else{
+//        av_audio_fifo_read(fifo, (void **) avAudioFrame->data, avAudioFrame->nb_samples);
+//        writeAudioFrame();
+//    }
+//    memcpy(avAudioFrame->data[0], outData[0], convertSize);
+//    memcpy(avAudioFrame->data[1], outData[1], convertSize);
+    //writeAudioFrame();
+
+//    /* encode a single tone sound */
+//    avAudioFrame->format = pAudioCodecCxt->sample_fmt;
+////    avAudioFrame->pts = av_rescale_q(audiocnt+=avAudioFrame->nb_samples, pAudioCodecCxt->time_base, outFormatCxt->streams[1]->time_base);
+//    avAudioFrame->pts += avAudioFrame->nb_samples;
+//    avAudioFrame->channels = pAudioCodecCxt->channels;
+//    avAudioFrame->channel_layout = pAudioCodecCxt->channel_layout;
+//
+//    avAudioPacket.data = NULL;
+//    avAudioPacket.size = 0;
+//    avAudioPacket.pts = 0;
+//    float t = 0;
+//    float tincr = 2 * M_PI * 440.0 / pAudioCodecCxt->sample_rate;
+//    int got_output = 0;
+//    uint8_t *samplesL = avAudioFrame->data[0], *samplesR = avAudioFrame->data[1];
+//    for (int i = 0; i < 200; i++) {
+//        av_init_packet(&avAudioPacket);
+//        avAudioPacket.data = NULL; // packet data will be allocated by the encoder
+//        avAudioPacket.size = 0;
+//        for (int j = 0; j < pAudioCodecCxt->frame_size; j++) {
+//            samplesL[j] = (int)(sin(t) * 10000);
+//            samplesR[j] = samplesL[j];
+//            t += tincr;
+//        }
+//        /* encode the samples */
+//        ret = avcodec_encode_audio2(pAudioCodecCxt, &avAudioPacket, avAudioFrame, &got_output);
+//        if (ret < 0) {
+//            fprintf(stderr, "Error encoding audio frame\n");
+//            exit(1);
+//        }
+//        if (got_output) {
+//            ret = av_interleaved_write_frame(outFormatCxt, &avAudioPacket);
+//            if(ret < 0){
+//                LOGE("write frame ret: %d", ret);
+//            }
+//
+//            av_packet_unref(&avAudioPacket);
+//        }
+//    }
+
 
 //    for(int i = 0; i < length / 8 - 8; i++){
 //        for(int j = 0; j < 4; j++){
@@ -579,7 +685,7 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodePCM(JNIEnv *env, jclass t
 //        }
 //
 //    }
-    writeAudioFrame();
+    //writeAudioFrame();
 
     env->ReleaseFloatArrayElements(floats_, floats, 0);
     return 0;
@@ -587,18 +693,30 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodePCM(JNIEnv *env, jclass t
 
 void writeAudioFrame() {
     avAudioFrame->format = pAudioCodecCxt->sample_fmt;
-    avAudioFrame->pts = ++audiocnt*10;
+//    avAudioFrame->pts = av_rescale_q(audiocnt+=avAudioFrame->nb_samples, pAudioCodecCxt->time_base, outFormatCxt->streams[1]->time_base);
+    avAudioFrame->pts += avAudioFrame->nb_samples;
+    avAudioFrame->channels = pAudioCodecCxt->channels;
+    avAudioFrame->channel_layout = pAudioCodecCxt->channel_layout;
 
     avAudioPacket.data = NULL;
     avAudioPacket.size = 0;
+    avAudioPacket.pts = 0;
     av_init_packet(&avAudioPacket);
     int got_audio = 0;
-//    avcodec_encode_audio3(pAudioCodecCxt, &avAudioPacket, avAudioFrame, &got_audio);
-    int ret = avcodec_send_frame(pAudioCodecCxt, avAudioFrame);
+//    int encodeRet = avcodec_encode_audio2(pAudioCodecCxt, &avAudioPacket, avAudioFrame, &got_audio);
+//    LOGE("encodeRet: %d, got_audio: %d", encodeRet, got_audio);
+    int sendFrameRet = avcodec_send_frame(pAudioCodecCxt, avAudioFrame);
+    if(sendFrameRet != 0){
+//        LOGE("send frame ret: %d", sendFrameRet);
+        return;
+    }
     got_audio = avcodec_receive_packet(pAudioCodecCxt, &avAudioPacket);
-
     if (got_audio == 0) {
+        if(avAudioPacket.pts < 0)
+            avAudioPacket.pts = 0;
         avAudioPacket.stream_index = outFormatCxt->streams[1]->index;
+        av_packet_rescale_ts(&avAudioPacket, pAudioCodecCxt->time_base, outFormatCxt->streams[1]->time_base);
+//        LOGE("pts: %lld, dura: %d", avAudioPacket.pts, avAudioPacket.duration);
 //        AVRational frameRate = {1, 1000};
 //        avAudioPacket.pts = av_rescale_q(avAudioPacket.pts, outFormatCxt->streams[1]->time_base,
 //                                       frameRate);
@@ -616,206 +734,17 @@ void writeAudioFrame() {
 //            av_usleep(100);
 //        }
 
-        av_write_frame(outFormatCxt, &avAudioPacket);
+        ret = av_interleaved_write_frame(outFormatCxt, &avAudioPacket);
+        if(ret < 0){
+            static char error_buffer[255];
+            av_strerror(ret, error_buffer, sizeof(error_buffer));
+            LOGE("write frame ret: %d, %s", ret, error_buffer);
+        }
+
         av_packet_unref(&avAudioPacket);
     }
 
 }
-
-int avcodec_encode_audio3(AVCodecContext *avctx,
-                          AVPacket *avpkt,
-                          const AVFrame *frame,
-                          int *got_packet_ptr) {
-    AVFrame *extended_frame = NULL;
-    AVFrame *padded_frame = NULL;
-    int ret;
-    AVPacket user_pkt = *avpkt;
-    int needs_realloc = !user_pkt.data;
-
-    *got_packet_ptr = 0;
-
-    if (!avctx->codec->encode2) {
-        av_log(avctx, AV_LOG_ERROR, "This encoder requires using the avcodec_send_frame() API.\n");
-        return AVERROR(ENOSYS);
-    }
-
-    if (!(avctx->codec->capabilities & AV_CODEC_CAP_DELAY) && !frame) {
-        av_packet_unref(avpkt);
-        av_init_packet(avpkt);
-        return 0;
-    }
-
-/* ensure that extended_data is properly set */
-    if (frame && !frame->extended_data) {
-        if (av_sample_fmt_is_planar(avctx->sample_fmt) &&
-            avctx->channels > AV_NUM_DATA_POINTERS) {
-            av_log(avctx, AV_LOG_ERROR, "Encoding to a planar sample format, "
-                           "with more than %d channels, but extended_data is not set.\n",
-                   AV_NUM_DATA_POINTERS);
-            return AVERROR(EINVAL);
-        }
-        av_log(avctx, AV_LOG_WARNING, "extended_data is not set.\n");
-
-        extended_frame = av_frame_alloc();
-        if (!extended_frame)
-            return AVERROR(ENOMEM);
-
-        memcpy(extended_frame, frame, sizeof(AVFrame));
-        extended_frame->extended_data = extended_frame->data;
-        frame = extended_frame;
-    }
-
-/* extract audio service type metadata */
-    if (frame) {
-        AVFrameSideData *sd = av_frame_get_side_data(frame, AV_FRAME_DATA_AUDIO_SERVICE_TYPE);
-        if (sd && sd->size >= sizeof(enum AVAudioServiceType))
-            avctx->audio_service_type = *(enum AVAudioServiceType *) sd->data;
-    }
-
-/* check for valid frame size */
-    if (frame) {
-        if (avctx->codec->capabilities & AV_CODEC_CAP_SMALL_LAST_FRAME) {
-            if (frame->nb_samples > avctx->frame_size) {
-                av_log(avctx, AV_LOG_ERROR,
-                       "more samples than frame size (avcodec_encode_audio2)\n");
-                ret = AVERROR(EINVAL);
-                goto end;
-            }
-        } else if (!(avctx->codec->capabilities & AV_CODEC_CAP_VARIABLE_FRAME_SIZE)) {
-            if (frame->nb_samples < avctx->frame_size
-                /*&& !avctx->internal->last_audio_frame*/) {
-                ret = pad_last_frame(avctx, &padded_frame, frame);
-                if (ret < 0)
-                    goto end;
-
-                frame = padded_frame;
-                //avctx->internal->last_audio_frame = 1;
-            }
-
-            if (frame->nb_samples != avctx->frame_size) {
-                av_log(avctx, AV_LOG_ERROR,
-                       "nb_samples (%d) != frame_size (%d) (avcodec_encode_audio2)\n",
-                       frame->nb_samples, avctx->frame_size);
-                ret = AVERROR(EINVAL);
-                goto end;
-            }
-        }
-    }
-
-    av_assert0(avctx->codec->encode2);
-//    ret = aac_encode_frame(avctx, avpkt, frame, got_packet_ptr);
-    LOGE("ndk 10-1");
-    ret = avctx->codec->encode2(avctx, avpkt, frame, got_packet_ptr);
-    LOGE("ndk 10-2");
-    if (!ret) {
-        if (*got_packet_ptr) {
-            if (!(avctx->codec->capabilities & AV_CODEC_CAP_DELAY)) {
-                if (avpkt->pts == AV_NOPTS_VALUE)
-                    avpkt->pts = frame->pts;
-                if (!avpkt->duration)
-                    avpkt->duration = ff_samples_to_time_base(avctx,
-                                                              frame->nb_samples);
-            }
-            avpkt->dts = avpkt->pts;
-        } else {
-            avpkt->size = 0;
-        }
-    }
-    LOGE("ndk 10-3");
-    if (avpkt->data /*&& avpkt->data == avctx->internal->byte_buffer*/) {
-        needs_realloc = 0;
-        if (user_pkt.data) {
-            if (user_pkt.size >= avpkt->size) {
-                memcpy(user_pkt.data, avpkt->data, avpkt->size);
-            } else {
-                av_log(avctx, AV_LOG_ERROR, "Provided packet is too small, needs to be %d\n",
-                       avpkt->size);
-                avpkt->size = user_pkt.size;
-                ret = -1;
-            }
-            avpkt->buf = user_pkt.buf;
-            avpkt->data = user_pkt.data;
-        } else {
-            if (av_dup_packet(avpkt) < 0) {
-                ret = AVERROR(ENOMEM);
-            }
-        }
-    }
-    LOGE("ndk 10-4");
-    if (!ret) {
-        if (needs_realloc && avpkt->data) {
-            ret = av_buffer_realloc(&avpkt->buf, avpkt->size + AV_INPUT_BUFFER_PADDING_SIZE);
-            if (ret >= 0)
-                avpkt->data = avpkt->buf->data;
-        }
-
-        avctx->frame_number++;
-    }
-    LOGE("ndk 10-5");
-    if (ret < 0 || !*got_packet_ptr) {
-        av_packet_unref(avpkt);
-        LOGE("ndk 10-5-1");
-        av_init_packet(avpkt);
-        LOGE("ndk 10-5-2");
-        goto end;
-    }
-    LOGE("ndk 10-8");
-/* NOTE: if we add any audio encoders which output non-keyframe packets,
- *       this needs to be moved to the encoders, but for now we can do it
- *       here to simplify things */
-    avpkt->flags |= AV_PKT_FLAG_KEY;
-
-    end:
-    LOGE("ndk 10-6");
-    av_frame_free(&padded_frame);
-    av_free(extended_frame);
-    LOGE("ndk 10-7");
-#if FF_API_AUDIOENC_DELAY
-    avctx->delay = avctx->initial_padding;
-#endif
-
-    return ret;
-}
-
-
-
-static int pad_last_frame(AVCodecContext *s, AVFrame **dst, const AVFrame *src)
-{
-    AVFrame *frame = NULL;
-    int ret;
-
-    if (!(frame = av_frame_alloc()))
-        return AVERROR(ENOMEM);
-
-    frame->format         = src->format;
-    frame->channel_layout = src->channel_layout;
-    av_frame_set_channels(frame, av_frame_get_channels(src));
-    frame->nb_samples     = s->frame_size;
-    ret = av_frame_get_buffer(frame, 32);
-    if (ret < 0)
-        goto fail;
-
-    ret = av_frame_copy_props(frame, src);
-    if (ret < 0)
-        goto fail;
-
-    if ((ret = av_samples_copy(frame->extended_data, src->extended_data, 0, 0,
-                               src->nb_samples, s->channels, s->sample_fmt)) < 0)
-        goto fail;
-    if ((ret = av_samples_set_silence(frame->extended_data, src->nb_samples,
-                                      frame->nb_samples - src->nb_samples,
-                                      s->channels, s->sample_fmt)) < 0)
-        goto fail;
-
-    *dst = frame;
-
-    return 0;
-
-    fail:
-    av_frame_free(&frame);
-    return ret;
-}
-
 
 JNIEXPORT jint JNICALL
 Java_com_mikiller_ndktest_ndkapplication_NDKImpl_flush(JNIEnv *env, jclass type) {
@@ -876,7 +805,8 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_close(JNIEnv *env, jclass type)
 JNIEXPORT void JNICALL
 Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initStartTime(JNIEnv *, jclass) {
     startTime = av_gettime();
-//    framecnt = 0;
+    framecnt = 2;
+    audiocnt = 0;
 
 }
 }

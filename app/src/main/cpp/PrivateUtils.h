@@ -10,6 +10,7 @@
 extern "C"{
 #include <libavformat/avformat.h>
 #include <libswresample/swresample.h>
+#include "libavutil/audio_fifo.h"
 
 AVFormatContext *outFormatCxt = NULL;
 //AVStream *avStream = NULL;
@@ -28,9 +29,10 @@ AVPacket avAudioPacket;
 AVFrame *avAudioFrame = NULL;
 size_t audioBufSize = 0;
 uint8_t  *audioBuffer = NULL;
+AVAudioFifo *fifo = NULL;
 
 SwrContext * swrCxt = NULL;
-uint8_t ** outData = NULL;
+
 
 void analyzeYUVData(jbyte *yData, jbyte *uData, jbyte *vData, jint rowStride, jint pixelStride);
 
@@ -46,14 +48,7 @@ AVStream* initAvStream();
 
 AVStream* initAudioStream();
 
-//void initSwrContext();
-
-int avcodec_encode_audio3(AVCodecContext *,
-                          AVPacket *,
-                          const AVFrame *,
-                          int *);
-
-static int pad_last_frame(AVCodecContext *s, AVFrame **dst, const AVFrame *src);
+void initSwrContext();
 
 static av_always_inline int64_t ff_samples_to_time_base(AVCodecContext *avctx,
                                                         int64_t samples)
