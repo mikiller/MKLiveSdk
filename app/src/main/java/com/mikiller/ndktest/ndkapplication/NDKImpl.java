@@ -11,6 +11,8 @@ public class NDKImpl {
 
     public static native int initFFMpeg(String outputUrl, int width, int height);
 
+    public static native int initFFMpeg2(String outputUrl, String inputUrl, int width, int height);
+
     public static native int encodeYUV(byte[] yuvData);
 
     public static native int flush();
@@ -20,6 +22,10 @@ public class NDKImpl {
     public static native int encodeYUV1(byte[] bytes, byte[] bytesU, byte[] bytesV, int rowStrite, int pixelStrite);
 
     public static native int encodePCM(float[] floats, int length);
+
+    public static native int encodePCMS(short[] floats, int length);
+
+    public static native int writeAudioFrame();
 
     public static native void initStartTime();
 }

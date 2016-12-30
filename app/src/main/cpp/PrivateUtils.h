@@ -30,8 +30,19 @@ AVFrame *avAudioFrame = NULL;
 size_t audioBufSize = 0;
 uint8_t  *audioBuffer = NULL;
 AVAudioFifo *fifo = NULL;
-
+uint8_t ** outData = NULL;
+uint8_t ** inputSample = NULL;
 SwrContext * swrCxt = NULL;
+
+AVCodecContext*pInputAudioCodecCxt = NULL;
+AVFormatContext *inputFormatCxt = NULL;
+char* inputUrl = NULL;
+AVFrame * inFrame = NULL;
+AVOutputFormat *fmt = NULL;
+AVPacket inPkt;
+FILE *inFile = NULL;
+size_t aacPktSize;
+uint8_t *aacBuf = NULL;
 
 
 void analyzeYUVData(jbyte *yData, jbyte *uData, jbyte *vData, jint rowStride, jint pixelStride);
@@ -49,6 +60,8 @@ AVStream* initAvStream();
 AVStream* initAudioStream();
 
 void initSwrContext();
+
+int initAvAudioFrame(AVFrame **audioFrame, size_t frameSize);
 
 static av_always_inline int64_t ff_samples_to_time_base(AVCodecContext *avctx,
                                                         int64_t samples)

@@ -6,10 +6,13 @@ import android.hardware.Camera;
 import android.hardware.camera2.CameraManager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.text.Editable;
 import android.text.TextUtils;
+import android.text.TextWatcher;
 import android.text.method.ScrollingMovementMethod;
 import android.util.DisplayMetrics;
 import android.util.Log;
+import android.view.TextureView;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.widget.Button;
@@ -18,6 +21,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.File;
+import java.io.IOException;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
@@ -45,15 +49,48 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         unbinder = ButterKnife.bind(this);
 
-        fileDir = getExternalCacheDir().getAbsolutePath();
+        fileDir = getExternalFilesDir(null).getAbsolutePath().concat(File.separator);
+        filePath = fileDir.concat(edt_input.getText().toString());
 
+        edt_input.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                if(!TextUtils.isEmpty(s.toString())){
+                    switch (s.toString()){
+                        case "1.flv":
+                        case "1.mp4":
+                            filePath = fileDir.concat(s.toString());
+                            File file = new File(filePath);
+                            if(!file.exists()){
+                                try {
+                                    file.createNewFile();
+                                } catch (IOException e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                            break;
+                    }
+
+                }
+            }
+        });
 
         btn_start.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 if(TextUtils.isEmpty(edt_input.getText().toString()) || TextUtils.isEmpty(edt_output.getText().toString()))
                     return;
-                filePath = fileDir.concat(File.separator).concat(edt_input.getText().toString());
+                //filePath = filePath.concat(edt_input.getText().toString());
                 File file = new File(filePath);
                 if(!file.exists()){
                     Toast.makeText(MainActivity.this, "file not exit\n" + filePath, Toast.LENGTH_LONG).show();
@@ -68,8 +105,10 @@ public class MainActivity extends AppCompatActivity {
         btn_start_camera.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+
                 Intent intent = new Intent(MainActivity.this, CameraActivity.class);
-                intent.putExtra("outputUrl", outputUrl = edt_output.getText().toString());
+//                intent.putExtra("outputUrl", outputUrl = edt_output.getText().toString());
+                intent.putExtra("outputUrl", outputUrl = filePath);
                 startActivity(intent);
             }
         });
