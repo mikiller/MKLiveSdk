@@ -37,6 +37,7 @@ import android.support.v4.app.ActivityCompat;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.Size;
+import android.view.KeyEvent;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -45,8 +46,13 @@ import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.ImageButton;
 
+import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.lang.reflect.Array;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
@@ -89,12 +95,16 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
 
     AudioRecord audioRecord;
     int audioBufSize = 0;
-    int sampleRate = 44100;
+    int sampleRate = 96000;
     int audioSource = MediaRecorder.AudioSource.MIC;
-    int channelConfig = AudioFormat.CHANNEL_IN_STEREO; //立体声 声道
+    int channelConfig = AudioFormat.CHANNEL_IN_MONO; //立体声 声道
     int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
     int audioBitRate = 320*1000;
-    short[] sample;
+    byte[] sample;
+
+    String pcmFileName, wavFileName;
+    File pcmFile, wavFile;
+    OutputStream os;
 
 
     ImageReader imageReader;
@@ -187,24 +197,14 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
         @Override
         protected Void doInBackground(Void... params) {
             if(yuvbytes != null){
-                NDKImpl.encodeYUV1(yuvbytes[0], yuvbytes[1], yuvbytes[2], rowStride, pixelSride);
+//                NDKImpl.encodeYUV1(yuvbytes[0], yuvbytes[1], yuvbytes[2], rowStride, pixelSride);
             }
 //            Log.e("asytask", this.toString());
             return null;
         }
     }
 
-    private class WriteFrameTask extends AsyncTask<Void, Void,Void>{
-
-        @Override
-        protected Void doInBackground(Void... params) {
-            NDKImpl.writeAudioFrame();
-            return null;
-        }
-    }
-
     private StreamTask streamTask;
-    private WriteFrameTask writeFrameTask;
     private Camera.PreviewCallback previewCallback;
     private boolean isPlay = false;
     private boolean isFirstTime = true;
@@ -216,8 +216,6 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
         setContentView(R.layout.activity_camera);
         unbinder = ButterKnife.bind(this);
         initView();
-
-        writeFrameTask = new WriteFrameTask();
 
         previewCallback = new Camera.PreviewCallback() {
             @Override
@@ -233,7 +231,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
                 }
                 if(isPlay) {
                     Log.e(CameraActivity.class.getSimpleName(), "" + data.length);
-                    NDKImpl.encodeYUV(data);
+                    //NDKImpl.encodeYUV(data);
 //                    streamTask = new StreamTask(data);
 //                    streamTask.execute((Void) null);
                 }
@@ -269,7 +267,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
 
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
-        //initCamera(width, height);
+        initCamera(width, height);
         initAudioRecord();
 //        initFFMpeg();
 //        if(camera != null){
@@ -301,23 +299,22 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
                 public void onImageAvailable(ImageReader reader) {
                     Image image = reader.acquireNextImage();
                     if(isPlay) {
-//                        encodePCM();
+//                            Log.e(CameraActivity.class.getSimpleName(), "start encode pcm");
+//                            encodePCM();
+//                            Log.e(CameraActivity.class.getSimpleName(), "start encode pcm end");
 //                        NDKImpl.encodeYUV(YUVUtils.getDataFromImage(image, YUVUtils.COLOR_FormatNV21));
 //                        Log.e(CameraActivity.class.getSimpleName(), "yuv starttime: " + System.currentTimeMillis());
 
-
-                        int planeSize = image.getPlanes().length;
-                        int rowStride = image.getPlanes()[1].getRowStride(), pixelStride = image.getPlanes()[1].getPixelStride();
-                        ByteBuffer[] yuvBuffer = new ByteBuffer[planeSize];
-                        byte[][] yuvbytes = new byte[planeSize][];
-                        for(int i = 0; i < planeSize; i++){
-                            yuvBuffer[i] = image.getPlanes()[i].getBuffer();
-                            yuvbytes[i] = new byte[yuvBuffer[i].remaining()];
-                            yuvBuffer[i].get(yuvbytes[i]);
-                        }
-                        //NDKImpl.encodeYUV1(yuvbytes[0], yuvbytes[1], yuvbytes[2], rowStride, pixelStride);
-
-
+                                int planeSize = image.getPlanes().length;
+                                int rowStride = image.getPlanes()[1].getRowStride(), pixelStride = image.getPlanes()[1].getPixelStride();
+                                ByteBuffer[] yuvBuffer = new ByteBuffer[planeSize];
+                                byte[][] yuvbytes = new byte[planeSize][];
+                                for (int i = 0; i < planeSize; i++) {
+                                    yuvBuffer[i] = image.getPlanes()[i].getBuffer();
+                                    yuvbytes[i] = new byte[yuvBuffer[i].remaining()];
+                                    yuvBuffer[i].get(yuvbytes[i]);
+                                }
+                                NDKImpl.encodeData(yuvbytes[0], yuvbytes[1], yuvbytes[2], rowStride, pixelStride);
 
 //                        Log.e(CameraActivity.class.getSimpleName(), "yuv endtime: " + System.currentTimeMillis());
 //                        streamTask = new StreamTask(yuvbytes, rowStride, pixelStride);
@@ -370,21 +367,21 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
             return;
         }
         audioRecord = new AudioRecord(audioSource, sampleRate, channelConfig, audioFormat, audioBufSize);
-        int period = audioBufSize / (2*16*2 / 8);
-        audioRecord.setPositionNotificationPeriod(period);
-        audioRecord.setRecordPositionUpdateListener(new AudioRecord.OnRecordPositionUpdateListener() {
-            @Override
-            public void onMarkerReached(AudioRecord recorder) {
-
-            }
-
-            @Override
-            public void onPeriodicNotification(AudioRecord recorder) {
-                if (sample != null && (sample[2] != 0 && sample[3] != 0)) {
-                    NDKImpl.encodePCMS(sample, sample.length);
-                }
-            }
-        });
+//        int period = audioBufSize / (2*16*2 / 8);
+//        audioRecord.setPositionNotificationPeriod(period);
+//        audioRecord.setRecordPositionUpdateListener(new AudioRecord.OnRecordPositionUpdateListener() {
+//            @Override
+//            public void onMarkerReached(AudioRecord recorder) {
+//
+//            }
+//
+//            @Override
+//            public void onPeriodicNotification(AudioRecord recorder) {
+////                if (sample != null && (sample[2] != 0 && sample[3] != 0)) {
+////                    NDKImpl.encodePCMS(sample, sample.length);
+////                }
+//            }
+//        });
         if(audioRecord.getState() == AudioRecord.STATE_UNINITIALIZED){
             Log.e(CameraActivity.class.getSimpleName(), "init audio failed");
             return;
@@ -406,7 +403,22 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
             initFFMpeg();
             startPreview();
         }
-        initFFMpeg();
+//        initFFMpeg();
+//        pcmFileName = getExternalFilesDir(null).getAbsolutePath().concat("/java.pcm");
+//        wavFileName = getExternalFilesDir(null).getAbsolutePath().concat("/java.wav");
+//        pcmFile = new File(pcmFileName);
+//        if(pcmFile.exists())
+//            pcmFile.delete();
+//        wavFile = new File(wavFileName);
+//        if(wavFile.exists())
+//            wavFile.delete();
+//        try {
+//            pcmFile.createNewFile();
+//            wavFile.createNewFile();
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+
 //        if(camera != null){
 //            Camera.Parameters parameters = camera.getParameters();
 //            parameters.setPreviewSize(CameraActivity.this.width, CameraActivity.this.height);
@@ -435,9 +447,8 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
 //        height = dm.heightPixels;
         width = 320;
         height = 240;
-        String input = getExternalFilesDir(null).getAbsolutePath().concat(File.separator).concat("test.wav");
-        NDKImpl.initFFMpeg2(outputUrl, input, /*previewSize.getWidth(), previewSize.getHeight()*/640, 480);
-//        NDKImpl.initFFMpeg(outputUrl, width, height/*640, 480*/);
+//        String input = getExternalFilesDir(null).getAbsolutePath().concat(File.separator).concat("test.wav");
+        NDKImpl.initFFMpeg(outputUrl, previewSize.getWidth(), previewSize.getHeight(), channelConfig == AudioFormat.CHANNEL_IN_MONO ? 1 : 2, audioFormat, sampleRate);
     }
 
 
@@ -473,69 +484,33 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
         @Override
         public void run() {
             Log.e(CameraActivity.class.getSimpleName(), "isPlay: " + isPlay);
-            //while(isPlay){
-                //byte[] audioData = new byte[audioBufSize];
-                encodePCM();
-
-            //}
-        }
-    }
-
-    private void encodePCM() {
-//        FloatBuffer audioBuf = FloatBuffer.allocate(audioBufSize);
-        ShortBuffer audioBuf = ShortBuffer.allocate(audioBufSize);
-        if (audioRecord.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) {
-//            Log.e(CameraActivity.class.getSimpleName(), "starttime: " + System.currentTimeMillis());
-//            byte[] sample = getAudioData(audioBuf);
-//            float[] sample = getAudioData(audioBuf);
-            sample = getAudioData(audioBuf);
-//            if (sample != null /*&& (sample[2] != 0 && sample[3] != 0)*/) {
-                int ret = NDKImpl.encodePCMS(sample, sample.length);
-            if(ret == 0){
-                ckb_play.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        ckb_play.setChecked(false);
-                    }
-                });
+            while(isPlay){
+                saveAudioBuffer();
             }
-////                Log.e(CameraActivity.class.getSimpleName(), "endtime: " + System.currentTimeMillis());
-////                if(isFirstTime){
-////                    writeFrameTask.execute();
-////                    isFirstTime = false;
-////                }
-//            }
         }
     }
 
-    private short[] getAudioData(ShortBuffer audioData){
-        short[] sample = null;
-        int ret = audioRecord.read(audioData.array(), 0, audioData.capacity());
+    private void saveAudioBuffer(){
+        if (audioRecord.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) {
+            sample = getAudioData();
+            int ret = NDKImpl.saveAudioBuffer(sample, sample.length);
+        }
+    }
+
+    private byte[] getAudioData(){
+        ByteBuffer audioBuf = ByteBuffer.allocate(audioBufSize);
+        int ret = audioRecord.read(audioBuf.array(), 0, audioBuf.capacity());
         if(ret ==  AudioRecord.ERROR_INVALID_OPERATION || ret == AudioRecord.ERROR_BAD_VALUE){
             Log.e(CameraActivity.class.getSimpleName(), "get audio failed");
-            return sample;
+            return null;
         }
-        audioData.limit(ret);
-        return audioData.array();
+        audioBuf.limit(ret);
+        return audioBuf.array();
     }
 
-    @SuppressLint("NewApi")
-    private float[] getAudioData(FloatBuffer audioData){
-        float[] sample = null;
-        int ret = audioRecord.read(audioData.array(), 0, audioData.capacity(), READ_BLOCKING);
-//        Log.e(CameraActivity.class.getSimpleName(), "ret: " + ret);
-        if(ret ==  AudioRecord.ERROR_INVALID_OPERATION || ret == AudioRecord.ERROR_BAD_VALUE){
-            Log.e(CameraActivity.class.getSimpleName(), "get audio failed");
-            return sample;
-        }
-        audioData.limit(ret);
-        return audioData.array();
-    }
-
-    private void float2byte(byte[] b, float s, int i){
-        int fInt = Float.floatToIntBits(s);
-        for(int j = 0; j < 4; j++){
-            b[i * 4 + j] = (byte)((fInt >> (j * 8)) & 0xff);
-        }
-    }
+//    private void encodePCM() {
+//        if (audioRecord.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) {
+//            int ret = NDKImpl.encodePCM();
+//        }
+//    }
 }

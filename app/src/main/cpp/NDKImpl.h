@@ -26,26 +26,18 @@ JNIEXPORT jint JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_pushRTMP
 /*
  * Class:     com_mikiller_ndktest_ndkapplication_NDKImpl
  * Method:    initFFMpeg
- * Signature: (Ljava/lang/String;II)I
+ * Signature: (Ljava/lang/String;IIIII)I
  */
 JNIEXPORT jint JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initFFMpeg
-  (JNIEnv *, jclass, jstring, jint, jint);
+  (JNIEnv *, jclass, jstring, jint, jint, jint, jint, jint);
 
-/*
- * Class:     com_mikiller_ndktest_ndkapplication_NDKImpl
- * Method:    initFFMpeg
- * Signature: (Ljava/lang/String;Ljava/lang/String;II)I
- */
-JNIEXPORT jint JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initFFMpeg2
-        (JNIEnv *, jclass, jstring, jstring, jint, jint);
-
-/*
- * Class:     com_mikiller_ndktest_ndkapplication_NDKImpl
- * Method:    encodeYUV
- * Signature: ([B)I
- */
-JNIEXPORT jint JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodeYUV
-  (JNIEnv *, jclass, jbyteArray);
+///*
+// * Class:     com_mikiller_ndktest_ndkapplication_NDKImpl
+// * Method:    encodeYUV
+// * Signature: ([B)I
+// */
+//JNIEXPORT jint JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodeYUV
+//  (JNIEnv *, jclass, jbyteArray);
 
 /*
  * Class:     com_mikiller_ndktest_ndkapplication_NDKImpl
@@ -65,35 +57,35 @@ JNIEXPORT jint JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_close
 
 /*
  * Class:     com_mikiller_ndktest_ndkapplication_NDKImpl
- * Method:    encodeYUV1
+ * Method:    saveAudioBuffer
+ * Signature: ([BI)I
+ */
+JNIEXPORT jint JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_saveAudioBuffer
+  (JNIEnv *, jclass, jbyteArray, jint);
+
+/*
+ * Class:     com_mikiller_ndktest_ndkapplication_NDKImpl
+ * Method:    encodeData
  * Signature: ([B[B[BII)I
  */
-JNIEXPORT jint JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodeYUV1
+JNIEXPORT jint JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodeData
   (JNIEnv *, jclass, jbyteArray, jbyteArray, jbyteArray, jint, jint);
 
-/*
- * Class:     com_mikiller_ndktest_ndkapplication_NDKImpl
- * Method:    encodePCM
- * Signature: ([FI)I
- */
-JNIEXPORT jint JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodePCM
-  (JNIEnv *, jclass, jfloatArray, jint);
+///*
+// * Class:     com_mikiller_ndktest_ndkapplication_NDKImpl
+// * Method:    encodeYUV1
+// * Signature: ([B[B[BII)I
+// */
+//JNIEXPORT jint JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodeYUV1
+//  (JNIEnv *, jclass, jbyteArray, jbyteArray, jbyteArray, jint, jint);
 
-/*
- * Class:     com_mikiller_ndktest_ndkapplication_NDKImpl
- * Method:    encodePCMS
- * Signature: ([SI)I
- */
-JNIEXPORT jint JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodePCMS
-  (JNIEnv *, jclass, jshortArray, jint);
-
-/*
- * Class:     com_mikiller_ndktest_ndkapplication_NDKImpl
- * Method:    writeAudioFrame
- * Signature: ()I
- */
-JNIEXPORT jint JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_writeAudioFrame
-  (JNIEnv *, jclass);
+///*
+// * Class:     com_mikiller_ndktest_ndkapplication_NDKImpl
+// * Method:    encodePCM
+// * Signature: ()I
+// */
+//JNIEXPORT jint JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodePCM
+//  (JNIEnv *, jclass);
 
 /*
  * Class:     com_mikiller_ndktest_ndkapplication_NDKImpl

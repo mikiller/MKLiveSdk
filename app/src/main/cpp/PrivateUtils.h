@@ -5,51 +5,30 @@
 #ifndef NDKTEST_PRIVATEUTILS_H
 #define NDKTEST_PRIVATEUTILS_H
 
-
-#include "jni.h"
 extern "C"{
 #include <libavformat/avformat.h>
 #include <libswresample/swresample.h>
 #include "libavutil/audio_fifo.h"
 
 AVFormatContext *outFormatCxt = NULL;
-//AVStream *avStream = NULL;
+int inputChannels, inputSampleRate;
+AVSampleFormat inputSampleFmt;
+
 AVCodecContext *pVideoCodecCxt = NULL;
-//use AVCodecParameters instead of AVCodecContext
-//AVCodecParameters *pCodecParam = NULL;
 AVCodec *avVideoCodec = NULL;
 AVPacket avVideoPacket;
 AVFrame *avVideoFrame = NULL;
-size_t frameBufSize = 0;
-uint8_t *frameBuffer = NULL;
+int videoStreamId = 0;
 
-AVCodecContext *pAudioCodecCxt = NULL;
-AVCodec *avAudioCodec = NULL;
-AVPacket avAudioPacket;
-AVFrame *avAudioFrame = NULL;
-size_t audioBufSize = 0;
-uint8_t  *audioBuffer = NULL;
-AVAudioFifo *fifo = NULL;
-uint8_t ** outData = NULL;
-uint8_t ** inputSample = NULL;
-SwrContext * swrCxt = NULL;
+void analyzeYUVData(uint8_t *yData, uint8_t *uData, uint8_t *vData, int rowStride, int pixelStride);
 
-AVCodecContext*pInputAudioCodecCxt = NULL;
-AVFormatContext *inputFormatCxt = NULL;
-char* inputUrl = NULL;
-AVFrame * inFrame = NULL;
-AVOutputFormat *fmt = NULL;
-AVPacket inPkt;
-FILE *inFile = NULL;
-size_t aacPktSize;
-uint8_t *aacBuf = NULL;
+int encodeYUV(AVPacket *avVideoPacket);
 
+void writeVideoFrame(AVPacket *avVideoPacket);
 
-void analyzeYUVData(jbyte *yData, jbyte *uData, jbyte *vData, jint rowStride, jint pixelStride);
+//void writeFrame();
 
-void writeFrame();
-
-void writeAudioFrame();
+//void writeAudioFrame();
 
 int initVideoCodecContext();
 
@@ -59,9 +38,9 @@ AVStream* initAvStream();
 
 AVStream* initAudioStream();
 
-void initSwrContext();
+int initAvAudioFrame(AVFrame **audioFrame);
 
-int initAvAudioFrame(AVFrame **audioFrame, size_t frameSize);
+int initAvVideoFrame(AVFrame **videoFrame);
 
 static av_always_inline int64_t ff_samples_to_time_base(AVCodecContext *avctx,
                                                         int64_t samples)

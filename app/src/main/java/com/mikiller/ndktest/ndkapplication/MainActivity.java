@@ -69,6 +69,7 @@ public class MainActivity extends AppCompatActivity {
                     switch (s.toString()){
                         case "1.flv":
                         case "1.mp4":
+                        case "1.aac":
                             filePath = fileDir.concat(s.toString());
                             File file = new File(filePath);
                             if(!file.exists()){
@@ -107,8 +108,8 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View v) {
 
                 Intent intent = new Intent(MainActivity.this, CameraActivity.class);
-//                intent.putExtra("outputUrl", outputUrl = edt_output.getText().toString());
-                intent.putExtra("outputUrl", outputUrl = filePath);
+                intent.putExtra("outputUrl", outputUrl = edt_output.getText().toString());
+//                intent.putExtra("outputUrl", outputUrl = filePath);
                 startActivity(intent);
             }
         });
