@@ -4,52 +4,50 @@
 
 #ifndef NDKTEST_PRIVATEUTILS_H
 #define NDKTEST_PRIVATEUTILS_H
-
 extern "C"{
+#ifdef ANDROID
+
+#include <jni.h>
+#include <android/log.h>
+
+#define TAG "NDKIMPL"
+
+#define LOGE(format, ...)  __android_log_print(ANDROID_LOG_ERROR, TAG, format, ##__VA_ARGS__)
+#define LOGI(format, ...)  __android_log_print(ANDROID_LOG_INFO,  TAG, format, ##__VA_ARGS__)
+#else
+#define LOGE(format, ...)  printf(TAG format "\n", ##__VA_ARGS__)
+#define LOGI(format, ...)  printf(TAG format "\n", ##__VA_ARGS__)
+#endif
+
+
 #include <libavformat/avformat.h>
 #include <libswresample/swresample.h>
-#include "libavutil/audio_fifo.h"
+#include <libavutil/audio_fifo.h>
+#include <libavutil/time.h>
 
-AVFormatContext *outFormatCxt = NULL;
-int inputChannels, inputSampleRate;
-AVSampleFormat inputSampleFmt;
+static AVFormatContext *outFormatCxt = NULL;
+static int ret = 0;
 
-AVCodecContext *pVideoCodecCxt = NULL;
-AVCodec *avVideoCodec = NULL;
-AVPacket avVideoPacket;
-AVFrame *avVideoFrame = NULL;
-int videoStreamId = 0;
-
-void analyzeYUVData(uint8_t *yData, uint8_t *uData, uint8_t *vData, int rowStride, int pixelStride);
-
-int encodeYUV(AVPacket *avVideoPacket);
-
-void writeVideoFrame(AVPacket *avVideoPacket);
-
-//void writeFrame();
-
-//void writeAudioFrame();
-
-int initVideoCodecContext();
-
-int initAudioCodecContext();
-
-AVStream* initAvStream();
-
-AVStream* initAudioStream();
-
-int initAvAudioFrame(AVFrame **audioFrame);
-
-int initAvVideoFrame(AVFrame **videoFrame);
-
-static av_always_inline int64_t ff_samples_to_time_base(AVCodecContext *avctx,
-                                                        int64_t samples)
-{
-    if(samples == AV_NOPTS_VALUE)
-        return AV_NOPTS_VALUE;
-    return av_rescale_q(samples, (AVRational){ 1, avctx->sample_rate },
-                        avctx->time_base);
+static void custom_log(void *ptr, int level, const char *fmt, va_list vl) {
+    FILE *file = fopen("/storage/emulated/0/av_log.txt", "a+");
+    if (file) {
+        vfprintf(file, fmt, vl);
+        fflush(file);
+        fclose(file);
+    }
 }
+
+static void LOGError(char *format, int ret) {
+    static char error_buffer[255];
+    av_strerror(ret, error_buffer, sizeof(error_buffer));
+    LOGE(format, ret, error_buffer);
+}
+
+void registFFMpeg();
+
+int init_and_open_outFormatCxt(AVFormatContext **, const char *, enum AVCodecID, enum AVCodecID);
+
+jint end(AVFormatContext **inputFormatContext, AVFormatContext **outputFormatContext);
 
 };
 #endif //NDKTEST_PRIVATEUTILS_H

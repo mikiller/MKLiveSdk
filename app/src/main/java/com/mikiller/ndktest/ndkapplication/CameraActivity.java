@@ -36,6 +36,7 @@ import android.os.HandlerThread;
 import android.support.v4.app.ActivityCompat;
 import android.util.DisplayMetrics;
 import android.util.Log;
+import android.util.Range;
 import android.util.Size;
 import android.view.KeyEvent;
 import android.view.Surface;
@@ -87,6 +88,8 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
     String outputUrl;
     int width, height;
     Size previewSize;
+    Range<Integer> frameRate;
+    long duration;
     CameraManager cameraManager;
     CameraDevice cameraDevice;
     CaptureRequest.Builder previewBuild;
@@ -95,11 +98,11 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
 
     AudioRecord audioRecord;
     int audioBufSize = 0;
-    int sampleRate = 96000;
+    int sampleRate = 44100;
     int audioSource = MediaRecorder.AudioSource.MIC;
     int channelConfig = AudioFormat.CHANNEL_IN_MONO; //立体声 声道
     int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
-    int audioBitRate = 320*1000;
+    int audioBitRate = 320 * 1000;
     byte[] sample;
 
     String pcmFileName, wavFileName;
@@ -140,6 +143,11 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
             previewBuild.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
             // 打开闪光灯
             previewBuild.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH);
+            previewBuild.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO);
+            Log.e(CameraActivity.class.getSimpleName(), frameRate.toString());
+            previewBuild.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, frameRate);
+            Log.e(CameraActivity.class.getSimpleName(), "duration: " + duration);
+            previewBuild.set(CaptureRequest.SENSOR_FRAME_DURATION, duration);
             captureRequest = previewBuild.build();
             try {
                 captureSession.setRepeatingRequest(captureRequest, null, handler);
@@ -182,10 +190,11 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
 
 
     private Camera camera;
-    @SuppressLint("NewApi")
-    private class StreamTask extends AsyncTask<Void, Void, Void>{
 
-        private byte[][] yuvbytes ;
+    @SuppressLint("NewApi")
+    private class StreamTask extends AsyncTask<Void, Void, Void> {
+
+        private byte[][] yuvbytes;
         private int rowStride, pixelSride;
 
         public StreamTask(byte[][] yuvbytes, int rowStride, int pixelSride) {
@@ -196,7 +205,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
 
         @Override
         protected Void doInBackground(Void... params) {
-            if(yuvbytes != null){
+            if (yuvbytes != null) {
 //                NDKImpl.encodeYUV1(yuvbytes[0], yuvbytes[1], yuvbytes[2], rowStride, pixelSride);
             }
 //            Log.e("asytask", this.toString());
@@ -220,8 +229,8 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
         previewCallback = new Camera.PreviewCallback() {
             @Override
             public void onPreviewFrame(byte[] data, Camera camera) {
-                if(streamTask != null){
-                    switch (streamTask.getStatus()){
+                if (streamTask != null) {
+                    switch (streamTask.getStatus()) {
                         case RUNNING:
                             break;
                         case PENDING:
@@ -229,7 +238,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
                             break;
                     }
                 }
-                if(isPlay) {
+                if (isPlay) {
                     Log.e(CameraActivity.class.getSimpleName(), "" + data.length);
                     //NDKImpl.encodeYUV(data);
 //                    streamTask = new StreamTask(data);
@@ -241,7 +250,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
 //        camera = Camera.open(0);
     }
 
-    private void initView(){
+    private void initView() {
         surfaceViewEx.getHolder().addCallback(this);
         surfaceViewEx.getHolder().setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
 
@@ -250,13 +259,12 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 isPlay = isChecked;
-                if(audioRecord != null) {
+                if (audioRecord != null) {
                     if (isPlay) {
                         audioRecord.startRecording();
                         audioThread.start();
                         //writeFrameTask.execute();
-                    }
-                    else{
+                    } else {
                         audioRecord.stop();
                     }
                 }
@@ -290,35 +298,36 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
             CameraCharacteristics cc = cameraManager.getCameraCharacteristics(cameraIds[0]);
             StreamConfigurationMap configurationMap = cc.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
             Size[] outputSize = configurationMap.getOutputSizes(SurfaceTexture.class);
+            Range<Integer>[] fpsList = cc.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES);
+            for (Range fps : fpsList) {
+                Log.e(CameraActivity.class.getSimpleName(), fps.toString());
+                if (fps.getLower().equals(30))
+                    frameRate = fps;
+            }
+
             previewSize = getMaxSize(outputSize); // or use custom size
             if (previewSize == null)
                 return;
-            imageReader = ImageReader.newInstance(previewSize.getWidth(), previewSize.getHeight(), ImageFormat.YUV_420_888, 1);
+            duration = configurationMap.getOutputMinFrameDuration(ImageFormat.YUV_420_888, previewSize);
+            imageReader = ImageReader.newInstance(previewSize.getWidth(), previewSize.getHeight(), ImageFormat.YUV_420_888, 25);
             imageReader.setOnImageAvailableListener(new ImageReader.OnImageAvailableListener() {
                 @Override
                 public void onImageAvailable(ImageReader reader) {
                     Image image = reader.acquireNextImage();
-                    if(isPlay) {
-//                            Log.e(CameraActivity.class.getSimpleName(), "start encode pcm");
-//                            encodePCM();
-//                            Log.e(CameraActivity.class.getSimpleName(), "start encode pcm end");
-//                        NDKImpl.encodeYUV(YUVUtils.getDataFromImage(image, YUVUtils.COLOR_FormatNV21));
-//                        Log.e(CameraActivity.class.getSimpleName(), "yuv starttime: " + System.currentTimeMillis());
+                    if (isPlay) {
+//                        Log.e(CameraActivity.class.getSimpleName(), "camera callback: " + System.currentTimeMillis());
 
-                                int planeSize = image.getPlanes().length;
-                                int rowStride = image.getPlanes()[1].getRowStride(), pixelStride = image.getPlanes()[1].getPixelStride();
-                                ByteBuffer[] yuvBuffer = new ByteBuffer[planeSize];
-                                byte[][] yuvbytes = new byte[planeSize][];
-                                for (int i = 0; i < planeSize; i++) {
-                                    yuvBuffer[i] = image.getPlanes()[i].getBuffer();
-                                    yuvbytes[i] = new byte[yuvBuffer[i].remaining()];
-                                    yuvBuffer[i].get(yuvbytes[i]);
-                                }
-                                NDKImpl.encodeData(yuvbytes[0], yuvbytes[1], yuvbytes[2], rowStride, pixelStride);
+                        int planeSize = image.getPlanes().length;
+                        int rowStride = image.getPlanes()[1].getRowStride(), pixelStride = image.getPlanes()[1].getPixelStride();
+                        ByteBuffer[] yuvBuffer = new ByteBuffer[planeSize];
+                        byte[][] yuvbytes = new byte[planeSize][];
+                        for (int i = 0; i < planeSize; i++) {
+                            yuvBuffer[i] = image.getPlanes()[i].getBuffer();
+                            yuvbytes[i] = new byte[yuvBuffer[i].remaining()];
+                            yuvBuffer[i].get(yuvbytes[i]);
+                        }
+                        NDKImpl.encodeData(yuvbytes[0], yuvbytes[1], yuvbytes[2], rowStride, pixelStride);
 
-//                        Log.e(CameraActivity.class.getSimpleName(), "yuv endtime: " + System.currentTimeMillis());
-//                        streamTask = new StreamTask(yuvbytes, rowStride, pixelStride);
-//                        streamTask.execute();
                     }
 
                     image.close();
@@ -346,48 +355,32 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
     }
 
     @SuppressLint("NewApi")
-    private Size getMaxSize(Size[] sizes){
+    private Size getMaxSize(Size[] sizes) {
         Size maxSize = null;
-        if(sizes == null)
+        if (sizes == null)
             return maxSize;
         maxSize = sizes[0];
-//        for(Size size : sizes){
+        for (Size size : sizes) {
 //            if(size.getWidth() * size.getHeight() > maxSize.getWidth() * maxSize.getHeight()) {
-//                Log.e(CameraActivity.class.getSimpleName(), "w: " + size.getWidth() + " h: " + size.getHeight());
+            Log.e(CameraActivity.class.getSimpleName(), "w: " + size.getWidth() + " h: " + size.getHeight());
 //                maxSize = size;
 //            }
-//        }
+        }
         return maxSize = new Size(1280, 720);
     }
 
-    private void initAudioRecord(){
+    private void initAudioRecord() {
         audioBufSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat);
-        if(audioBufSize == AudioRecord.ERROR_BAD_VALUE){
+        if (audioBufSize == AudioRecord.ERROR_BAD_VALUE) {
             Log.e(CameraActivity.class.getSimpleName(), "audio param is wrong");
             return;
         }
         audioRecord = new AudioRecord(audioSource, sampleRate, channelConfig, audioFormat, audioBufSize);
-//        int period = audioBufSize / (2*16*2 / 8);
-//        audioRecord.setPositionNotificationPeriod(period);
-//        audioRecord.setRecordPositionUpdateListener(new AudioRecord.OnRecordPositionUpdateListener() {
-//            @Override
-//            public void onMarkerReached(AudioRecord recorder) {
-//
-//            }
-//
-//            @Override
-//            public void onPeriodicNotification(AudioRecord recorder) {
-////                if (sample != null && (sample[2] != 0 && sample[3] != 0)) {
-////                    NDKImpl.encodePCMS(sample, sample.length);
-////                }
-//            }
-//        });
-        if(audioRecord.getState() == AudioRecord.STATE_UNINITIALIZED){
+        if (audioRecord.getState() == AudioRecord.STATE_UNINITIALIZED) {
             Log.e(CameraActivity.class.getSimpleName(), "init audio failed");
             return;
         }
     }
-
 
 
     @Override
@@ -399,7 +392,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
     @SuppressLint("NewApi")
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
         Log.e(this.getClass().getSimpleName(), "on surfacechanged");
-        if(previewSize != null && width == previewSize.getWidth() && height == previewSize.getHeight()){
+        if (previewSize != null && width == previewSize.getWidth() && height == previewSize.getHeight()) {
             initFFMpeg();
             startPreview();
         }
@@ -429,7 +422,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
     }
 
     @SuppressLint("NewApi")
-    private void startPreview(){
+    private void startPreview() {
         try {
             previewBuild = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
             previewBuild.addTarget(surfaceViewEx.getHolder().getSurface());
@@ -455,18 +448,18 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
     @Override
     protected void onPause() {
         super.onPause();
-       // NDKImpl.flush();
+        // NDKImpl.flush();
         NDKImpl.close();
     }
 
     @SuppressLint("NewApi")
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
-        if(cameraDevice != null) {
+        if (cameraDevice != null) {
             cameraDevice.close();
             cameraDevice = null;
         }
-        if(camera != null){
+        if (camera != null) {
             camera.stopPreview();
             camera.release();
             camera = null;
@@ -479,32 +472,31 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
         unbinder.unbind();
     }
 
-    private class AudioRunnable implements Runnable{
+    private class AudioRunnable implements Runnable {
 
         @Override
         public void run() {
             Log.e(CameraActivity.class.getSimpleName(), "isPlay: " + isPlay);
-            while(isPlay){
+            while (isPlay) {
                 saveAudioBuffer();
             }
         }
     }
 
-    private void saveAudioBuffer(){
+    private void saveAudioBuffer() {
         if (audioRecord.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) {
             sample = getAudioData();
             int ret = NDKImpl.saveAudioBuffer(sample, sample.length);
         }
     }
 
-    private byte[] getAudioData(){
+    private byte[] getAudioData() {
         ByteBuffer audioBuf = ByteBuffer.allocate(audioBufSize);
         int ret = audioRecord.read(audioBuf.array(), 0, audioBuf.capacity());
-        if(ret ==  AudioRecord.ERROR_INVALID_OPERATION || ret == AudioRecord.ERROR_BAD_VALUE){
+        if (ret < 0) {
             Log.e(CameraActivity.class.getSimpleName(), "get audio failed");
-            return null;
-        }
-        audioBuf.limit(ret);
+        } else
+            audioBuf.limit(ret);
         return audioBuf.array();
     }
 

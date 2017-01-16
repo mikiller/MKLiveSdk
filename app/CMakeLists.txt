@@ -31,6 +31,8 @@ add_library( # Sets the name of the library.
              # Associated headers in the same location as their source
              # file are automatically included.
              src/main/cpp/native-lib.cpp
+             src/main/cpp/VideoUtils.cpp
+             src/main/cpp/AudioUtils.cpp
              src/main/cpp/NDKImpl.cpp)
 
 #add_library( # Sets the name of the library.
