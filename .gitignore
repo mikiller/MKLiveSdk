@@ -6,4 +6,4 @@
 /build
 /captures
 .externalNativeBuild
-app/src/main/ffmepg_source_code
+app/src/main/ffmpeg_source_code
