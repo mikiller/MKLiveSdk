@@ -6,7 +6,6 @@
 
 #include "AudioUtils.h"
 
-extern "C" {
 AVCodecContext *audioCodecCxt = NULL;
 AVCodec *avAudioCodec = NULL;
 AVFrame *audioFrame = NULL;
@@ -18,7 +17,7 @@ int inputChannels, inputSampleRate;
 AVSampleFormat inputSampleFmt;
 
 SwrContext *swrCxt = NULL;
-uint64_t pts = 0;
+uint64_t firstAudioTime = 0;
 
 
 void initSampleParams(int channels, int sampleFmt, int sampleRate) {
@@ -216,6 +215,7 @@ int encodeAudio(int64_t *audioPts) {
         return error;
     }
     int gotSample = avcodec_receive_packet(audioCodecCxt, &avAudioPacket);
+
     if (gotSample != 0) {
         av_packet_unref(&avAudioPacket);
     }
@@ -227,13 +227,18 @@ int writeAudioFrame(AVFormatContext *outputFormat, int audioStreamId, int64_t st
     avAudioPacket.stream_index = audioStreamId;
     av_packet_rescale_ts(&avAudioPacket, audioCodecCxt->time_base,
                          outputFormat->streams[audioStreamId]->time_base);
-
+    LOGE("audio pkt pts:%lld, dts:%lld", avAudioPacket.pts, avAudioPacket.dts);
+    avAudioPacket.pts += firstDts * 2;
+    avAudioPacket.dts += firstDts * 2;
     int64_t ptsTime = av_rescale_q(avAudioPacket.dts,
                                    outputFormat->streams[audioStreamId]->time_base,
                                    {1, AV_TIME_BASE});
-    int64_t nowTime = av_gettime() - startTime;
+    if(!firstAudioTime){
+        firstAudioTime = (avAudioPacket.dts + startTime);
+    }
+    int64_t nowTime = av_gettime() - firstAudioTime;
     if (ptsTime > nowTime) {
-        LOGE("sleeptime: %lld", ptsTime - nowTime);
+        LOGE("audio sleeptime: %lld", ptsTime - nowTime);
         av_usleep(ptsTime - nowTime);
     }
 
@@ -268,6 +273,5 @@ void freeAudioReference() {
     }
 }
 
-};
 #endif
 

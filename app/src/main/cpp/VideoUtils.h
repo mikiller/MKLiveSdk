@@ -12,6 +12,7 @@ extern "C"{
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 
+
 void initYUVSize(int, int);
 
 AVCodecID getVideoCodecId();
@@ -34,7 +35,7 @@ void writeVideoFrame(AVFormatContext*, int, int64_t);
 
 void freeVideoReference();
 
-
 };
+
 
 #endif //NDKTEST_VIDEOUTILS_H

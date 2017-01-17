@@ -62,6 +62,9 @@ import java.nio.ShortBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
@@ -147,7 +150,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
             Log.e(CameraActivity.class.getSimpleName(), frameRate.toString());
             previewBuild.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, frameRate);
             Log.e(CameraActivity.class.getSimpleName(), "duration: " + duration);
-            previewBuild.set(CaptureRequest.SENSOR_FRAME_DURATION, duration);
+            previewBuild.set(CaptureRequest.SENSOR_FRAME_DURATION, /*duration*/0l);
             captureRequest = previewBuild.build();
             try {
                 captureSession.setRepeatingRequest(captureRequest, null, handler);
@@ -192,28 +195,43 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
     private Camera camera;
 
     @SuppressLint("NewApi")
-    private class StreamTask extends AsyncTask<Void, Void, Void> {
+    private class StreamTask implements Runnable {
 
-        private byte[][] yuvbytes;
-        private int rowStride, pixelSride;
+        byte[][] yuvBytes;
+        int rowStride, pixelStride;
 
-        public StreamTask(byte[][] yuvbytes, int rowStride, int pixelSride) {
-            this.pixelSride = pixelSride;
+        public StreamTask() {
+        }
+
+        public StreamTask(byte[][] yuvBytes, int rowStride, int pixelStride) {
+            this.yuvBytes = yuvBytes;
             this.rowStride = rowStride;
-            this.yuvbytes = yuvbytes;
+            this.pixelStride = pixelStride;
+        }
+
+        public void setParams(byte[][] yuvBytes, int rowStride, int pixelStride) {
+            this.yuvBytes = yuvBytes;
+            this.rowStride = rowStride;
+            this.pixelStride = pixelStride;
         }
 
         @Override
-        protected Void doInBackground(Void... params) {
-            if (yuvbytes != null) {
-//                NDKImpl.encodeYUV1(yuvbytes[0], yuvbytes[1], yuvbytes[2], rowStride, pixelSride);
+        public void run() {
+            while (true) {
+                synchronized (streamTask) {
+                    try {
+                        this.wait();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+                    NDKImpl.encodeData(yuvBytes[0], yuvBytes[1], yuvBytes[2], rowStride, pixelStride);
+
             }
-//            Log.e("asytask", this.toString());
-            return null;
         }
     }
-
-    private StreamTask streamTask;
+    ExecutorService executorService;
+    private StreamTask streamTask = new StreamTask();
     private Camera.PreviewCallback previewCallback;
     private boolean isPlay = false;
     private boolean isFirstTime = true;
@@ -226,18 +244,21 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
         unbinder = ButterKnife.bind(this);
         initView();
 
+        executorService = Executors.newSingleThreadExecutor();
+        executorService.execute(streamTask);
+
         previewCallback = new Camera.PreviewCallback() {
             @Override
             public void onPreviewFrame(byte[] data, Camera camera) {
-                if (streamTask != null) {
-                    switch (streamTask.getStatus()) {
-                        case RUNNING:
-                            break;
-                        case PENDING:
-                            streamTask.cancel(false);
-                            break;
-                    }
-                }
+//                if (streamTask != null) {
+//                    switch (streamTask.getStatus()) {
+//                        case RUNNING:
+//                            break;
+//                        case PENDING:
+//                            streamTask.cancel(false);
+//                            break;
+//                    }
+//                }
                 if (isPlay) {
                     Log.e(CameraActivity.class.getSimpleName(), "" + data.length);
                     //NDKImpl.encodeYUV(data);
@@ -254,7 +275,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
         surfaceViewEx.getHolder().addCallback(this);
         surfaceViewEx.getHolder().setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
 
-        final Thread audioThread = new Thread(new AudioRunnable());
+//        final Thread audioThread = new Thread(new AudioRunnable());
         ckb_play.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
@@ -262,8 +283,8 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
                 if (audioRecord != null) {
                     if (isPlay) {
                         audioRecord.startRecording();
+                        Thread audioThread = new Thread(new AudioRunnable());
                         audioThread.start();
-                        //writeFrameTask.execute();
                     } else {
                         audioRecord.stop();
                     }
@@ -309,7 +330,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
             if (previewSize == null)
                 return;
             duration = configurationMap.getOutputMinFrameDuration(ImageFormat.YUV_420_888, previewSize);
-            imageReader = ImageReader.newInstance(previewSize.getWidth(), previewSize.getHeight(), ImageFormat.YUV_420_888, 25);
+            imageReader = ImageReader.newInstance(previewSize.getWidth(), previewSize.getHeight(), ImageFormat.YUV_420_888, 1);
             imageReader.setOnImageAvailableListener(new ImageReader.OnImageAvailableListener() {
                 @Override
                 public void onImageAvailable(ImageReader reader) {
@@ -326,12 +347,20 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
                             yuvbytes[i] = new byte[yuvBuffer[i].remaining()];
                             yuvBuffer[i].get(yuvbytes[i]);
                         }
-                        NDKImpl.encodeData(yuvbytes[0], yuvbytes[1], yuvbytes[2], rowStride, pixelStride);
 
+//                        NDKImpl.encodeData(yuvbytes[0], yuvbytes[1], yuvbytes[2], rowStride, pixelStride);
+
+                            streamTask.setParams(yuvbytes, rowStride, pixelStride);
+                        synchronized (streamTask) {
+                            streamTask.notify();
+                        }
                     }
-
+//
                     image.close();
-
+//                    if(isPlay) {
+//                        streamTask = new StreamTask(reader);
+//                    streamTask.execute();
+//                    }
                 }
             }, handler);
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
@@ -361,10 +390,10 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
             return maxSize;
         maxSize = sizes[0];
         for (Size size : sizes) {
-//            if(size.getWidth() * size.getHeight() > maxSize.getWidth() * maxSize.getHeight()) {
-            Log.e(CameraActivity.class.getSimpleName(), "w: " + size.getWidth() + " h: " + size.getHeight());
-//                maxSize = size;
-//            }
+            if(size.getWidth() * size.getHeight() > maxSize.getWidth() * maxSize.getHeight()) {
+                Log.e(CameraActivity.class.getSimpleName(), "w: " + size.getWidth() + " h: " + size.getHeight());
+                maxSize = size;
+            }
         }
         return maxSize = new Size(1280, 720);
     }
@@ -476,10 +505,11 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
 
         @Override
         public void run() {
-            Log.e(CameraActivity.class.getSimpleName(), "isPlay: " + isPlay);
+            Log.e(CameraActivity.class.getSimpleName(), "isPlay1: " + isPlay);
             while (isPlay) {
                 saveAudioBuffer();
             }
+            Log.e(CameraActivity.class.getSimpleName(), "isPlay: " + isPlay);
         }
     }
 

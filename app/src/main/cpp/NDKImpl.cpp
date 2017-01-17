@@ -279,8 +279,16 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodeData(JNIEnv *env, jclass 
     int gotFrame = 0, gotSample = 0;
     int cmpRet = 0;
 
-    cmpRet = av_compare_ts(videoPts, getVideoTimebase(), audioPts, getAudioTimebase());
 
+    analyzeYUVData((uint8_t *) yData, (uint8_t *) uData, (uint8_t *) vData, rowStride,
+                   pixelStride);
+    gotFrame = encodeYUV(&videoPts);
+    if (gotFrame == 0) {
+        writeVideoFrame(outFormatCxt, videoStreamId, startTime);
+    } else {
+        LOGError("encode video ret:%d, %s", gotFrame);
+    }
+    cmpRet = av_compare_ts(videoPts, getVideoTimebase(), audioPts, getAudioTimebase());
     if (cmpRet > 0) {
         pthread_mutex_lock(&datalock);
         while (needWriteAudioFrame()) {
@@ -296,14 +304,7 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodeData(JNIEnv *env, jclass 
         }
         pthread_mutex_unlock(&datalock);
     }
-    analyzeYUVData((uint8_t *) yData, (uint8_t *) uData, (uint8_t *) vData, rowStride,
-                   pixelStride);
-    gotFrame = encodeYUV(&videoPts);
-    if (gotFrame == 0) {
-        writeVideoFrame(outFormatCxt, videoStreamId, startTime);
-    } else {
-        LOGError("encode video ret:%d, %s", gotFrame);
-    }
+
     pthread_mutex_unlock(&lock);
     env->ReleaseByteArrayElements(bytes_, yData, 0);
     env->ReleaseByteArrayElements(bytesU_, uData, 0);

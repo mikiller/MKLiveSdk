@@ -5,14 +5,14 @@
 #define NDKTEST_VIDEOUTILS_CPP
 
 #include "VideoUtils.h"
-extern "C"{
+
 AVCodecContext *videoCodecCxt = NULL;
 AVCodec *videoCodec = NULL;
 AVFrame *videoFrame = NULL;
 AVPacket avVideoPacket;
 AVRational videoTimebase = {1, 15};
 int yuvWidth = 0, yuvHeight = 0;
-
+int64_t firstTime = 0;
 void initYUVSize(int w, int h){
     yuvWidth = w;
     yuvHeight = h;
@@ -35,20 +35,23 @@ AVCodecContext* initVideoCodecContext() {
     videoCodecCxt->width = yuvWidth;
     videoCodecCxt->height = yuvHeight;
     videoCodecCxt->time_base = videoTimebase;
-    videoCodecCxt->bit_rate = 500 * 1000; //传输速率 rate/kbps
-    videoCodecCxt->gop_size = 12; //gop = fps/N ?
-    videoCodecCxt->max_b_frames = 12; // fps?
-    videoCodecCxt->qmin = 10; // 1-51, 10-30 is better
-    videoCodecCxt->qmax = 30; // 1-51, 10-30 is better
-    videoCodecCxt->profile = FF_PROFILE_H264_MAIN;
+    videoCodecCxt->bit_rate = 800 * 1000; //传输速率 rate/kbps
+//    videoCodecCxt->gop_size = 12; //gop = fps/N ?
+//    videoCodecCxt->max_b_frames = 3; // fps?
+    videoCodecCxt->thread_type = FF_THREAD_FRAME;
+    videoCodecCxt->thread_count = 4;
+//    videoCodecCxt->qmin = 1; // 1-51, 10-30 is better
+//    videoCodecCxt->qmax = 35; // 1-51, 10-30 is better
+//    videoCodecCxt->profile = FF_PROFILE_H264_HIGH;
     return videoCodecCxt;
 }
 
 int openVideoEncoder(){
     AVDictionary *param = NULL;
-    av_dict_set(&param, "preset", "ultrafast"/*"slow"*/, 0);
+    av_dict_set(&param, "preset", "ultrafast"/*"superfast"*/, 0);
     av_dict_set(&param, "tune", "zerolatency", 0);
     return avcodec_open2(videoCodecCxt, videoCodec, &param);
+//    return avcodec_open2(videoCodecCxt, videoCodec, NULL);
 }
 
 AVStream *initAvVideoStream(AVFormatContext *outFormatCxt, int *videoStreamId) {
@@ -117,7 +120,6 @@ int encodeYUV(int64_t *videoPts) {
 
 void writeVideoFrame(AVFormatContext *outFormatCxt, int videoStreamId, int64_t startTime) {
     avVideoPacket.stream_index = videoStreamId;
-//    AVRational frameRate = {15, 1};
 //    avVideoPacket->pts = av_rescale(avVideoPacket->pts, outFormatCxt->streams[0]->time_base.den,
 //                                    20);
 //    avVideoPacket->dts = av_rescale(avVideoPacket->dts, outFormatCxt->streams[0]->time_base.den,
@@ -127,15 +129,22 @@ void writeVideoFrame(AVFormatContext *outFormatCxt, int videoStreamId, int64_t s
     avVideoPacket.pos = -1;
     av_packet_rescale_ts(&avVideoPacket, videoCodecCxt->time_base,
                          outFormatCxt->streams[videoStreamId]->time_base);
+    if(firstDts <= 0){
+        firstDts = avVideoPacket.dts;
+    }
     avVideoPacket.duration =
             (AV_TIME_BASE) * av_q2d(videoTimebase) /
             outFormatCxt->streams[videoStreamId]->time_base.den;
+
     int64_t ptsTime = av_rescale_q(avVideoPacket.dts,
                                    outFormatCxt->streams[videoStreamId]->time_base,
                                    {1, AV_TIME_BASE});
-    int64_t nowTime = av_gettime() - startTime;
+    if(!firstTime){
+        firstTime = (avVideoPacket.dts + startTime);
+    }
+    int64_t nowTime = av_gettime() - firstTime;
     if (ptsTime > nowTime) {
-        LOGE("sleeptime: %lld", ptsTime - nowTime);
+        LOGE("video sleeptime: %lld", ptsTime - nowTime);
         av_usleep(ptsTime - nowTime);
     }
     ret = av_interleaved_write_frame(outFormatCxt, &avVideoPacket);
@@ -158,5 +167,5 @@ void freeVideoReference(){
     }
 }
 
-};
+
 #endif

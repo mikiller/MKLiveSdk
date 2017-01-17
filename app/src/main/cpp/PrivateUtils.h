@@ -27,6 +27,7 @@ extern "C"{
 
 static AVFormatContext *outFormatCxt = NULL;
 static int ret = 0;
+static int64_t firstDts = 0;
 
 static void custom_log(void *ptr, int level, const char *fmt, va_list vl) {
     FILE *file = fopen("/storage/emulated/0/av_log.txt", "a+");
