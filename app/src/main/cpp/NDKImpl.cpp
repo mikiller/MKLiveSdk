@@ -279,15 +279,6 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodeData(JNIEnv *env, jclass 
     int gotFrame = 0, gotSample = 0;
     int cmpRet = 0;
 
-
-    analyzeYUVData((uint8_t *) yData, (uint8_t *) uData, (uint8_t *) vData, rowStride,
-                   pixelStride);
-    gotFrame = encodeYUV(&videoPts);
-    if (gotFrame == 0) {
-        writeVideoFrame(outFormatCxt, videoStreamId, startTime);
-    } else {
-        LOGError("encode video ret:%d, %s", gotFrame);
-    }
     cmpRet = av_compare_ts(videoPts, getVideoTimebase(), audioPts, getAudioTimebase());
     if (cmpRet > 0) {
         pthread_mutex_lock(&datalock);
@@ -304,6 +295,30 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodeData(JNIEnv *env, jclass 
         }
         pthread_mutex_unlock(&datalock);
     }
+
+    int needFrame = adjustFrame();
+    if(needFrame >= 0){
+        analyzeYUVData((uint8_t *) yData, (uint8_t *) uData, (uint8_t *) vData, rowStride,
+                       pixelStride);
+
+        for(int i = 0; i<=needFrame; i++){
+            gotFrame = encodeYUV(&videoPts);
+            if (gotFrame == 0) {
+                writeVideoFrame(outFormatCxt, videoStreamId, startTime);
+                LOGE("needframe: %d, time: %lld",needFrame,  av_gettime( ) / 1000);
+            } else {
+                LOGError("encode video ret:%d, %s", gotFrame);
+            }
+        }
+    }
+//    analyzeYUVData((uint8_t *) yData, (uint8_t *) uData, (uint8_t *) vData, rowStride,
+//                   pixelStride);
+//    gotFrame = encodeYUV(&videoPts);
+//    if (gotFrame == 0) {
+//        writeVideoFrame(outFormatCxt, videoStreamId, startTime);
+//    } else {
+//        LOGError("encode video ret:%d, %s", gotFrame);
+//    }
 
     pthread_mutex_unlock(&lock);
     env->ReleaseByteArrayElements(bytes_, yData, 0);
@@ -328,42 +343,7 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_saveAudioBuffer(JNIEnv *env, jc
 
 JNIEXPORT jint JNICALL
 Java_com_mikiller_ndktest_ndkapplication_NDKImpl_flush(JNIEnv *env, jclass type) {
-
-    // TODO
-//    int ret, gotFrame;
-//    AVPacket avPacket1;
-//    if (!(outFormatCxt->streams[0]->codec->codec->capabilities & CODEC_CAP_DELAY)) {
-//        return 0;
-//    }
-//    while (1) {
-//        avPacket1.data = NULL;
-//        avPacket1.size = 0;
-//        av_init_packet(&avPacket1);
-//        ret = avcodec_send_frame(pVideoCodecCxt, avVideoFrame);
-//        gotFrame = avcodec_receive_packet(pVideoCodecCxt, &avPacket1);
-//        if (ret < 0)
-//            break;
-//        if (gotFrame != 0) {
-//            ret = 0;
-//            break;
-//        }
-//        LOGI("Flush Encoder: Succeed to encode 1 frame!\tsize:%5d\n", avPacket1.size);
-//        AVRational time_base = outFormatCxt->streams[0]->time_base;
-//        AVRational r_framerate1 = {60, 2};
-//        AVRational base = {1, AV_TIME_BASE};
-//        int64_t calc_duration = (double) (AV_TIME_BASE) * (1 / av_q2d(r_framerate1));
-//        avPacket1.pts = av_rescale_q(framecnt * calc_duration, base, time_base);
-//        avPacket1.dts = avPacket1.pts;
-//        avPacket1.duration = av_rescale_q(calc_duration, base, time_base);
-//        avPacket1.pos = -1;
-//        framecnt++;
-//        outFormatCxt->duration = avPacket1.duration * framecnt;
-//
-//        ret = av_interleaved_write_frame(outFormatCxt, &avPacket1);
-//        if (ret < 0)
-//            break;
-//    }
-
+    flushVideo(outFormatCxt, videoStreamId);
     return 0;
 }
 

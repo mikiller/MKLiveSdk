@@ -33,6 +33,10 @@ int encodeYUV(int64_t *);
 
 void writeVideoFrame(AVFormatContext*, int, int64_t);
 
+void flushVideo(AVFormatContext*, int);
+
+int adjustFrame();
+
 void freeVideoReference();
 
 };

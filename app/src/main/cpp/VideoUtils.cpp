@@ -9,10 +9,11 @@
 AVCodecContext *videoCodecCxt = NULL;
 AVCodec *videoCodec = NULL;
 AVFrame *videoFrame = NULL;
-AVPacket avVideoPacket;
-AVRational videoTimebase = {1, 15};
+AVPacket avVideoPacket = { .data = NULL, .size = 0 };
+AVRational videoTimebase = {1, 25};
 int yuvWidth = 0, yuvHeight = 0;
 int64_t firstTime = 0;
+int64_t lastTime = 0, dFps = 0;
 void initYUVSize(int w, int h){
     yuvWidth = w;
     yuvHeight = h;
@@ -36,22 +37,21 @@ AVCodecContext* initVideoCodecContext() {
     videoCodecCxt->height = yuvHeight;
     videoCodecCxt->time_base = videoTimebase;
     videoCodecCxt->bit_rate = 800 * 1000; //传输速率 rate/kbps
-//    videoCodecCxt->gop_size = 12; //gop = fps/N ?
-//    videoCodecCxt->max_b_frames = 3; // fps?
+    videoCodecCxt->gop_size = 8; //gop = fps/N ?
+    videoCodecCxt->max_b_frames = 4; // fps?
     videoCodecCxt->thread_type = FF_THREAD_FRAME;
     videoCodecCxt->thread_count = 4;
-//    videoCodecCxt->qmin = 1; // 1-51, 10-30 is better
-//    videoCodecCxt->qmax = 35; // 1-51, 10-30 is better
-//    videoCodecCxt->profile = FF_PROFILE_H264_HIGH;
+    videoCodecCxt->qmin = 1;
+    videoCodecCxt->qmax = 40; // 1-51, 10-30 is better
+    videoCodecCxt->profile = FF_PROFILE_H264_HIGH;
     return videoCodecCxt;
 }
 
 int openVideoEncoder(){
     AVDictionary *param = NULL;
-    av_dict_set(&param, "preset", "ultrafast"/*"superfast"*/, 0);
-    av_dict_set(&param, "tune", "zerolatency", 0);
+    av_dict_set(&param, "preset", "ultrafast", 0);
+//    av_dict_set(&param, "tune", "zerolatency", 0);
     return avcodec_open2(videoCodecCxt, videoCodec, &param);
-//    return avcodec_open2(videoCodecCxt, videoCodec, NULL);
 }
 
 AVStream *initAvVideoStream(AVFormatContext *outFormatCxt, int *videoStreamId) {
@@ -129,6 +129,7 @@ void writeVideoFrame(AVFormatContext *outFormatCxt, int videoStreamId, int64_t s
     avVideoPacket.pos = -1;
     av_packet_rescale_ts(&avVideoPacket, videoCodecCxt->time_base,
                          outFormatCxt->streams[videoStreamId]->time_base);
+
     if(firstDts <= 0){
         firstDts = avVideoPacket.dts;
     }
@@ -153,6 +154,42 @@ void writeVideoFrame(AVFormatContext *outFormatCxt, int videoStreamId, int64_t s
     }
 
     av_packet_unref(&avVideoPacket);
+}
+
+void flushVideo(AVFormatContext* outFormatCxt, int videoStreamId){
+    while(1) {
+        av_init_packet(&avVideoPacket);
+        avVideoPacket.data = NULL;
+        avVideoPacket.size = 0;
+        avVideoPacket.flags |= AV_PKT_FLAG_KEY;
+
+        int encGotFrame = avcodec_receive_packet(videoCodecCxt, &avVideoPacket);
+        if (encGotFrame != 0) {
+            av_packet_unref(&avVideoPacket);
+            break;
+        }
+        writeVideoFrame(outFormatCxt, videoStreamId, 0);
+    }
+}
+
+int adjustFrame(){
+    int rst = 0;
+    int64_t now = av_gettime() / 1000;
+    if(lastTime){
+        int64_t delta = videoTimebase.den - lrintf(1000.0f / (now - lastTime));
+        dFps += delta;
+        if(dFps > videoTimebase.den /2){
+            LOGE("add frame");
+            dFps = delta;
+            rst = 1;
+        }else if(dFps < -videoTimebase.den){
+            LOGE("throw frame");
+            dFps = 0;
+            rst -1;
+        }
+    }
+    lastTime = now;
+    return rst;
 }
 
 void freeVideoReference(){

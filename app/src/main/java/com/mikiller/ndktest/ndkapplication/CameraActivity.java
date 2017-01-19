@@ -143,14 +143,17 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
         public void onConfigured(CameraCaptureSession session) {
             captureSession = session;
             // 自动对焦
-            previewBuild.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+//            previewBuild.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+            previewBuild.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO);
             // 打开闪光灯
             previewBuild.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH);
-            previewBuild.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO);
-            Log.e(CameraActivity.class.getSimpleName(), frameRate.toString());
-            previewBuild.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, frameRate);
-            Log.e(CameraActivity.class.getSimpleName(), "duration: " + duration);
-            previewBuild.set(CaptureRequest.SENSOR_FRAME_DURATION, /*duration*/0l);
+
+
+
+//            Log.e(CameraActivity.class.getSimpleName(), frameRate.toString());
+//            previewBuild.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, frameRate);
+//            Log.e(CameraActivity.class.getSimpleName(), "duration: " + duration);
+//            previewBuild.set(CaptureRequest.SENSOR_FRAME_DURATION, /*duration*/0l);
             captureRequest = previewBuild.build();
             try {
                 captureSession.setRepeatingRequest(captureRequest, null, handler);
@@ -322,7 +325,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
             Range<Integer>[] fpsList = cc.get(CameraCharacteristics.CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES);
             for (Range fps : fpsList) {
                 Log.e(CameraActivity.class.getSimpleName(), fps.toString());
-                if (fps.getLower().equals(30))
+                if (fps.getLower().equals(25))
                     frameRate = fps;
             }
 
@@ -453,7 +456,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
     @SuppressLint("NewApi")
     private void startPreview() {
         try {
-            previewBuild = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+            previewBuild = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
             previewBuild.addTarget(surfaceViewEx.getHolder().getSurface());
             previewBuild.addTarget(imageReader.getSurface());
             cameraDevice.createCaptureSession(Arrays.asList(surfaceViewEx.getHolder().getSurface(), imageReader.getSurface()), stateCallback, handler);
@@ -477,7 +480,7 @@ public class CameraActivity extends Activity implements SurfaceHolder.Callback {
     @Override
     protected void onPause() {
         super.onPause();
-        // NDKImpl.flush();
+         NDKImpl.flush();
         NDKImpl.close();
     }
 

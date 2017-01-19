@@ -9,7 +9,7 @@
 AVCodecContext *audioCodecCxt = NULL;
 AVCodec *avAudioCodec = NULL;
 AVFrame *audioFrame = NULL;
-AVPacket avAudioPacket;
+AVPacket avAudioPacket = { .data = NULL, .size = 0 };
 AVRational audioTimebase = {1, 44100};
 AVAudioFifo *fifo = NULL;
 uint8_t **inputSample = NULL;
@@ -227,7 +227,7 @@ int writeAudioFrame(AVFormatContext *outputFormat, int audioStreamId, int64_t st
     avAudioPacket.stream_index = audioStreamId;
     av_packet_rescale_ts(&avAudioPacket, audioCodecCxt->time_base,
                          outputFormat->streams[audioStreamId]->time_base);
-    LOGE("audio pkt pts:%lld, dts:%lld", avAudioPacket.pts, avAudioPacket.dts);
+//    LOGE("audio pkt pts:%lld, dts:%lld", avAudioPacket.pts, avAudioPacket.dts);
     avAudioPacket.pts += firstDts * 2;
     avAudioPacket.dts += firstDts * 2;
     int64_t ptsTime = av_rescale_q(avAudioPacket.dts,
