@@ -17,6 +17,8 @@ import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -30,8 +32,22 @@ import butterknife.Unbinder;
 public class MainActivity extends AppCompatActivity {
 
     private Unbinder unbinder;
-    @BindView(R.id.btn_start)
-    public Button btn_start;
+    @BindView(R.id.rdg_video_quality)
+    RadioGroup rdg_video_quality;
+    @BindView(R.id.rdg_audio_quality)
+    RadioGroup rdg_audio_quality;
+    @BindView(R.id.rdb_sd)
+    public RadioButton rdb_sd;
+    @BindView(R.id.rdb_hd)
+    public RadioButton rdb_hd;
+    @BindView(R.id.rdb_op)
+    public RadioButton rdb_op;
+    @BindView(R.id.rdb_fl)
+    public RadioButton rdb_fl;
+    @BindView(R.id.rdb_st)
+    public RadioButton rdb_st;
+    @BindView(R.id.rdb_hq)
+    public RadioButton rdb_hq;
     @BindView(R.id.edt_input)
     public EditText edt_input;
     @BindView(R.id.edt_output)
@@ -86,29 +102,33 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        btn_start.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if(TextUtils.isEmpty(edt_input.getText().toString()) || TextUtils.isEmpty(edt_output.getText().toString()))
-                    return;
-                //filePath = filePath.concat(edt_input.getText().toString());
-                File file = new File(filePath);
-                if(!file.exists()){
-                    Toast.makeText(MainActivity.this, "file not exit\n" + filePath, Toast.LENGTH_LONG).show();
-                    return;
-                }
-                outputUrl = edt_output.getText().toString();
-
-                NDKImpl.pushRTMP(filePath, outputUrl);
-            }
-        });
+//        btn_start.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View v) {
+//                if(TextUtils.isEmpty(edt_input.getText().toString()) || TextUtils.isEmpty(edt_output.getText().toString()))
+//                    return;
+//                //filePath = filePath.concat(edt_input.getText().toString());
+//                File file = new File(filePath);
+//                if(!file.exists()){
+//                    Toast.makeText(MainActivity.this, "file not exit\n" + filePath, Toast.LENGTH_LONG).show();
+//                    return;
+//                }
+//                outputUrl = edt_output.getText().toString();
+//
+//                NDKImpl.pushRTMP(filePath, outputUrl);
+//            }
+//        });
 
         btn_start_camera.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                int videoQuality = Integer.parseInt((String) findViewById(rdg_video_quality.getCheckedRadioButtonId()).getTag());
+                int audioQuality = Integer.parseInt((String) findViewById(rdg_audio_quality.getCheckedRadioButtonId()).getTag());
 
                 Intent intent = new Intent(MainActivity.this, CameraActivity.class);
                 intent.putExtra("outputUrl", outputUrl = edt_output.getText().toString());
+                intent.putExtra("videoQuality", videoQuality);
+                intent.putExtra("audioQuality", audioQuality);
 //                intent.putExtra("outputUrl", outputUrl = filePath);
                 startActivity(intent);
             }

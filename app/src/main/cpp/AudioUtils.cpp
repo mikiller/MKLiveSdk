@@ -13,23 +13,14 @@ AVPacket avAudioPacket = { .data = NULL, .size = 0 };
 AVRational audioTimebase = {1, 44100};
 AVAudioFifo *fifo = NULL;
 uint8_t **inputSample = NULL;
-int inputChannels, inputSampleRate;
-AVSampleFormat inputSampleFmt;
+int inputChannels;
+AVSampleFormat inputSampleFmt = AV_SAMPLE_FMT_S16;
 
 SwrContext *swrCxt = NULL;
 uint64_t firstAudioTime = 0;
 
-
-void initSampleParams(int channels, int sampleFmt, int sampleRate) {
+void initChannels(int channels) {
     inputChannels = channels;
-    switch (sampleFmt) {
-        case 4:
-            inputSampleFmt = AV_SAMPLE_FMT_FLT;
-            break;
-        default:
-            inputSampleFmt = AV_SAMPLE_FMT_S16;
-    }
-    inputSampleRate = sampleRate;
 }
 
 AVCodecID getAudioCodecId() {
@@ -40,11 +31,12 @@ AVCodecID getAudioCodecId() {
     return avAudioCodec->id;
 }
 
-AVCodecContext *initAudioCodecContext() {
+AVCodecContext *initAudioCodecContext(int bitRate) {
     if (!(audioCodecCxt = avcodec_alloc_context3(avAudioCodec))) {
         LOGE("init avAudioContext failed");
         return NULL;
     }
+    LOGE("audio bit rate: %d", bitRate);
     audioCodecCxt->sample_fmt = avAudioCodec->sample_fmts[0];
 // audioCodecCxtxt->sample_rate = avAudioCodec->supported_samplerates[0];
     audioCodecCxt->sample_rate = 44100;
@@ -52,7 +44,7 @@ AVCodecContext *initAudioCodecContext() {
     audioCodecCxt->channels = av_get_channel_layout_nb_channels(audioCodecCxt->channel_layout);
     audioCodecCxt->profile = FF_PROFILE_AAC_MAIN;
     audioCodecCxt->strict_std_compliance = FF_COMPLIANCE_EXPERIMENTAL;
-    audioCodecCxt->bit_rate = 96 * 1000;
+    audioCodecCxt->bit_rate = bitRate * 1000;
     audioCodecCxt->time_base = audioTimebase;
     return audioCodecCxt;
 }
@@ -87,7 +79,7 @@ int initAvAudioFrame() {
     return av_frame_get_buffer(audioFrame, 0);
 }
 
-void initSwrContext() {
+void initSwrContext(int inputSampleRate) {
     swrCxt = swr_alloc();
     fifo = av_audio_fifo_alloc(inputSampleFmt, inputChannels, 1);
 
@@ -192,8 +184,8 @@ int readAndConvert() {
     return ret;
 }
 
-int encodeAudio(int64_t *audioPts) {
-    int error;
+int encodeAudio(int64_t *audioPts, int needFrame) {
+
     av_init_packet(&avAudioPacket);
     avAudioPacket.data = NULL;
     avAudioPacket.size = 0;
@@ -201,18 +193,18 @@ int encodeAudio(int64_t *audioPts) {
     /** Set a timestamp based on the sample rate for the container. */
     if (audioFrame) {
         audioFrame->pts = (*audioPts += audioCodecCxt->frame_size);
-//        pts += audioCodecCxt->frame_size;
     }
 
     /**
      * Encode the audio frame and store it in the temporary packet.
      * The output audio stream encoder is used to do this.
      */
-    int data_present = 0;
-    error = avcodec_send_frame(audioCodecCxt, audioFrame);
-    if (error < 0) {
-        LOGError("avcodec_send_audio_frame error%d: %s", error);
-        return error;
+    if(needFrame) {
+        int error = avcodec_send_frame(audioCodecCxt, audioFrame);
+        if (error < 0) {
+            LOGError("avcodec_send_audio_frame error%d: %s", error);
+            return error;
+        }
     }
     int gotSample = avcodec_receive_packet(audioCodecCxt, &avAudioPacket);
 
@@ -222,14 +214,12 @@ int encodeAudio(int64_t *audioPts) {
     return gotSample;
 }
 
-int writeAudioFrame(AVFormatContext *outputFormat, int audioStreamId, int64_t startTime) {
-    int error = AVERROR_EXIT;
+int writeAudioFrame(AVFormatContext *outputFormat, int audioStreamId, int64_t startTime, int64_t firstDts) {
     avAudioPacket.stream_index = audioStreamId;
     av_packet_rescale_ts(&avAudioPacket, audioCodecCxt->time_base,
                          outputFormat->streams[audioStreamId]->time_base);
-//    LOGE("audio pkt pts:%lld, dts:%lld", avAudioPacket.pts, avAudioPacket.dts);
-    avAudioPacket.pts += firstDts * 2;
-    avAudioPacket.dts += firstDts * 2;
+    avAudioPacket.pts += firstDts;
+    avAudioPacket.dts += firstDts;
     int64_t ptsTime = av_rescale_q(avAudioPacket.dts,
                                    outputFormat->streams[audioStreamId]->time_base,
                                    {1, AV_TIME_BASE});
@@ -242,11 +232,20 @@ int writeAudioFrame(AVFormatContext *outputFormat, int audioStreamId, int64_t st
         av_usleep(ptsTime - nowTime);
     }
 
-    if ((error = av_interleaved_write_frame(outputFormat, &avAudioPacket)) < 0) {
-        LOGError("Could not write frame (error%d '%s')\n", error);
+    if ((ret = av_interleaved_write_frame(outputFormat, &avAudioPacket)) < 0) {
+        LOGError("Could not write frame (error%d '%s')\n", ret);
     }
     av_packet_unref(&avAudioPacket);
-    return error;
+    return ret;
+}
+
+void flushAudio(AVFormatContext *outFormatCxt, int audioStreamId, int64_t *audioPts){
+    while(1){
+        if(encodeAudio(audioPts, false) != 0){
+            break;
+        }
+        writeAudioFrame(outFormatCxt, audioStreamId, 0, 0);
+    }
 }
 
 bool needWriteAudioFrame() {

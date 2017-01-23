@@ -13,10 +13,11 @@ extern "C" {
 #include "libavfilter/avfilter.h"
 #include "libavdevice/avdevice.h"
 
+char *outputUrl;
 int videoStreamId = 0, audioStreamId = 0;
 int64_t startTime = 0;
 int64_t videoPts = 0, audioPts = 0;
-
+static int64_t firstDts = 0;
 pthread_mutex_t lock;
 pthread_mutex_t datalock;
 
@@ -180,29 +181,29 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_pushRTMP(JNIEnv *env, jclass ty
 
 JNIEXPORT jint JNICALL
 Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initFFMpeg(JNIEnv *env, jclass type,
-                                                            jstring outputUrl_, jint width,
-                                                            jint height,
-                                                            jint channels, jint sampleFmt,
-                                                            jint sampleRate) {
-    const char *outputUrl = env->GetStringUTFChars(outputUrl_, 0);
+                                                            jstring outputUrl_,
+                                                            jint width, jint height,
+                                                            jint channels, jint sampleRate,
+                                                            jint videoBitRate, jint audioBitRate) {
+    outputUrl = (char *) env->GetStringUTFChars(outputUrl_, 0);
     AVCodecContext *pVideoCodecCxt = NULL;
     AVCodecContext *pAudioCodecCxt = NULL;
     // TODO
     registFFMpeg();
 
-    if ((ret = init_and_open_outFormatCxt(&outFormatCxt, outputUrl, getVideoCodecId(),
+    if ((ret = init_and_open_outFormatCxt(&outFormatCxt, getVideoCodecId(),
                                           getAudioCodecId())) < 0) {
         LOGError("open outFormatCxt failed ret:%d, %s", ret);
         return end(NULL, &outFormatCxt);
     }
 
     initYUVSize(width, height);
-    initSampleParams(channels, sampleFmt, sampleRate);
+    initChannels(channels);
 
-    if (!(pVideoCodecCxt = initVideoCodecContext()))
+    if (!(pVideoCodecCxt = initVideoCodecContext(videoBitRate)))
         return end(NULL, &outFormatCxt);
 
-    if (!(pAudioCodecCxt = initAudioCodecContext())) {
+    if (!(pAudioCodecCxt = initAudioCodecContext(audioBitRate))) {
         return end(NULL, &outFormatCxt);
     }
 
@@ -236,11 +237,13 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initFFMpeg(JNIEnv *env, jclass 
     initAvVideoFrame();
     initAvAudioFrame();
 
-    initSwrContext();
+    initSwrContext(sampleRate);
     init_samples_buffer();
 
     pthread_mutex_init(&lock, NULL);
     pthread_mutex_init(&datalock, NULL);
+
+    videoPts = 0; audioPts = 0; startTime = 0;
 
     env->ReleaseStringUTFChars(outputUrl_, outputUrl);
     return 0;
@@ -256,14 +259,14 @@ void registFFMpeg() {
     avformat_network_init();
 }
 
-int init_and_open_outFormatCxt(AVFormatContext **outFmtCxt, const char *outPath,
+int init_and_open_outFormatCxt(AVFormatContext **outFmtCxt,
                                AVCodecID videoCodecId, AVCodecID audioCodecId) {
     if ((videoCodecId | audioCodecId) == AV_CODEC_ID_NONE)
         return AVERROR(AVERROR_ENCODER_NOT_FOUND);
-    avformat_alloc_output_context2(outFmtCxt, NULL, "flv", outPath);
+    avformat_alloc_output_context2(outFmtCxt, NULL, "flv", outputUrl);
     (*outFmtCxt)->oformat->video_codec = videoCodecId;
     (*outFmtCxt)->oformat->audio_codec = audioCodecId;
-    return avio_open(&outFormatCxt->pb, outPath, AVIO_FLAG_WRITE);
+    return avio_open(&outFormatCxt->pb, outputUrl, AVIO_FLAG_WRITE);
 }
 
 JNIEXPORT jint JNICALL
@@ -278,6 +281,22 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodeData(JNIEnv *env, jclass 
     pthread_mutex_lock(&lock);
     int gotFrame = 0, gotSample = 0;
     int cmpRet = 0;
+    int needFrame = adjustFrame();
+
+    if(needFrame >= 0){
+        analyzeYUVData((uint8_t *) yData, (uint8_t *) uData, (uint8_t *) vData, rowStride,
+                       pixelStride);
+
+        for(int i = 0; i<=needFrame; i++){
+            gotFrame = encodeYUV(&videoPts);
+            if (gotFrame == 0) {
+                ret = writeVideoFrame(outFormatCxt, videoStreamId, startTime, &firstDts);
+            } else {
+                LOGError("encode video ret:%d, %s", gotFrame);
+                break;
+            }
+        }
+    }
 
     cmpRet = av_compare_ts(videoPts, getVideoTimebase(), audioPts, getAudioTimebase());
     if (cmpRet > 0) {
@@ -288,37 +307,13 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_encodeData(JNIEnv *env, jclass 
                 return AVERROR_EXIT;
             gotSample = encodeAudio(&audioPts);
             if (gotSample == 0) {
-                writeAudioFrame(outFormatCxt, audioStreamId, startTime);
+                ret = writeAudioFrame(outFormatCxt, audioStreamId, startTime, firstDts);
             } else {
                 LOGError("encode audio ret:%d, %s", gotSample);
             }
         }
         pthread_mutex_unlock(&datalock);
     }
-
-    int needFrame = adjustFrame();
-    if(needFrame >= 0){
-        analyzeYUVData((uint8_t *) yData, (uint8_t *) uData, (uint8_t *) vData, rowStride,
-                       pixelStride);
-
-        for(int i = 0; i<=needFrame; i++){
-            gotFrame = encodeYUV(&videoPts);
-            if (gotFrame == 0) {
-                writeVideoFrame(outFormatCxt, videoStreamId, startTime);
-                LOGE("needframe: %d, time: %lld",needFrame,  av_gettime( ) / 1000);
-            } else {
-                LOGError("encode video ret:%d, %s", gotFrame);
-            }
-        }
-    }
-//    analyzeYUVData((uint8_t *) yData, (uint8_t *) uData, (uint8_t *) vData, rowStride,
-//                   pixelStride);
-//    gotFrame = encodeYUV(&videoPts);
-//    if (gotFrame == 0) {
-//        writeVideoFrame(outFormatCxt, videoStreamId, startTime);
-//    } else {
-//        LOGError("encode video ret:%d, %s", gotFrame);
-//    }
 
     pthread_mutex_unlock(&lock);
     env->ReleaseByteArrayElements(bytes_, yData, 0);
@@ -343,7 +338,8 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_saveAudioBuffer(JNIEnv *env, jc
 
 JNIEXPORT jint JNICALL
 Java_com_mikiller_ndktest_ndkapplication_NDKImpl_flush(JNIEnv *env, jclass type) {
-    flushVideo(outFormatCxt, videoStreamId);
+    flushVideo(outFormatCxt, videoStreamId, &videoPts);
+    flushAudio(outFormatCxt, audioStreamId, &audioPts);
     return 0;
 }
 

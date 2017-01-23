@@ -15,7 +15,84 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="输入源："
+        android:text="输出画质："/>
+
+    <RadioGroup
+        android:id="@+id/rdg_video_quality"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="10dp">
+
+        <RadioButton
+            android:id="@+id/rdb_sd"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="标清"
+            android:checked="true"
+            android:tag="800"/>
+
+        <RadioButton
+            android:id="@+id/rdb_hd"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="高清"
+            android:tag="1200"/>
+
+        <RadioButton
+            android:id="@+id/rdb_op"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="原画"
+            android:tag="2400"/>
+    </RadioGroup>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="输出音质："/>
+
+    <RadioGroup
+        android:id="@+id/rdg_audio_quality"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="10dp">
+
+        <RadioButton
+            android:id="@+id/rdb_fl"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="流畅"
+            android:checked="true"
+            android:tag="64"/>
+
+        <RadioButton
+            android:id="@+id/rdb_st"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="标准"
+            android:tag="128"/>
+
+        <RadioButton
+            android:id="@+id/rdb_hq"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="高品"
+            android:tag="320"/>
+    </RadioGroup>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:text="输出文件："
         android:scrollbars="vertical"/>
 
     <EditText
@@ -38,13 +115,13 @@
         android:layout_marginTop="10dp"
         android:text="rtmp://172.26.27.248:1935/live/xia1"/>
 
-    <Button
-        android:id="@+id/btn_start"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:text="开始推流"
-        android:layout_gravity="center"/>
+    <!--<Button-->
+        <!--android:id="@+id/btn_start"-->
+        <!--android:layout_width="wrap_content"-->
+        <!--android:layout_height="wrap_content"-->
+        <!--android:layout_marginTop="10dp"-->
+        <!--android:text="开始推流"-->
+        <!--android:layout_gravity="center"/>-->
 
     <Button
         android:id="@+id/btn_start_camera"

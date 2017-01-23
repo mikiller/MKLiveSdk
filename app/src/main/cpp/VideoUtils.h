@@ -17,7 +17,7 @@ void initYUVSize(int, int);
 
 AVCodecID getVideoCodecId();
 
-AVCodecContext* initVideoCodecContext();
+AVCodecContext* initVideoCodecContext(int);
 
 int openVideoEncoder();
 
@@ -29,11 +29,11 @@ AVRational getVideoTimebase();
 
 void analyzeYUVData(uint8_t *yData, uint8_t *uData, uint8_t *vData, int rowStride, int pixelStride);
 
-int encodeYUV(int64_t *);
+int encodeYUV(int64_t *, int needFrame = true);
 
-void writeVideoFrame(AVFormatContext*, int, int64_t);
+int writeVideoFrame(AVFormatContext*, int, int64_t, int64_t*);
 
-void flushVideo(AVFormatContext*, int);
+void flushVideo(AVFormatContext*, int, int64_t *);
 
 int adjustFrame();
 

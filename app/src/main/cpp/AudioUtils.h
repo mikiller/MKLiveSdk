@@ -16,11 +16,11 @@ extern "C" {
 #include <libavformat/avformat.h>
 #include <libswresample/swresample.h>
 
-void initSampleParams(int ,int, int);
+void initChannels(int);
 
 AVCodecID getAudioCodecId();
 
-AVCodecContext* initAudioCodecContext();
+AVCodecContext* initAudioCodecContext(int);
 
 int openAudioEncoder();
 
@@ -28,7 +28,7 @@ AVStream* initAudioStream(AVFormatContext*, int *);
 
 int initAvAudioFrame();
 
-void initSwrContext();
+void initSwrContext(int);
 
 int init_samples_buffer();
 
@@ -40,9 +40,11 @@ bool needWriteAudioFrame();
 
 AVRational getAudioTimebase();
 
-int encodeAudio(int64_t* audioPts);
+int encodeAudio(int64_t* audioPts, int needFrame = true);
 
-int writeAudioFrame(AVFormatContext *outputFormat, int, int64_t);
+int writeAudioFrame(AVFormatContext *outputFormat, int, int64_t, int64_t);
+
+void flushAudio(AVFormatContext *, int , int64_t *);
 
 void freeAudioReference();
 

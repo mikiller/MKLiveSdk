@@ -26,10 +26,10 @@ JNIEXPORT jint JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_pushRTMP
 /*
  * Class:     com_mikiller_ndktest_ndkapplication_NDKImpl
  * Method:    initFFMpeg
- * Signature: (Ljava/lang/String;IIIII)I
+ * Signature: (Ljava/lang/String;IIIIII)I
  */
 JNIEXPORT jint JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initFFMpeg
-  (JNIEnv *, jclass, jstring, jint, jint, jint, jint, jint);
+  (JNIEnv *, jclass, jstring, jint, jint, jint, jint, jint, jint);
 
 ///*
 // * Class:     com_mikiller_ndktest_ndkapplication_NDKImpl
