@@ -5,12 +5,13 @@
 #define NDKTEST_AUDIOUTILS_CPP
 
 #include "AudioUtils.h"
+int SAMPLERATE = 44100;
 
 AVCodecContext *audioCodecCxt = NULL;
 AVCodec *avAudioCodec = NULL;
 AVFrame *audioFrame = NULL;
 AVPacket avAudioPacket = { .data = NULL, .size = 0 };
-AVRational audioTimebase = {1, 44100};
+AVRational audioTimebase = {1, SAMPLERATE};
 AVAudioFifo *fifo = NULL;
 uint8_t **inputSample = NULL;
 int inputChannels;
@@ -39,7 +40,7 @@ AVCodecContext *initAudioCodecContext(int bitRate) {
     LOGE("audio bit rate: %d", bitRate);
     audioCodecCxt->sample_fmt = avAudioCodec->sample_fmts[0];
 // audioCodecCxtxt->sample_rate = avAudioCodec->supported_samplerates[0];
-    audioCodecCxt->sample_rate = 44100;
+    audioCodecCxt->sample_rate = SAMPLERATE;
     audioCodecCxt->channel_layout = av_get_default_channel_layout(2);
     audioCodecCxt->channels = av_get_channel_layout_nb_channels(audioCodecCxt->channel_layout);
     audioCodecCxt->profile = FF_PROFILE_AAC_MAIN;
@@ -79,17 +80,17 @@ int initAvAudioFrame() {
     return av_frame_get_buffer(audioFrame, 0);
 }
 
-void initSwrContext(int inputSampleRate) {
+void initSwrContext() {
     swrCxt = swr_alloc();
     fifo = av_audio_fifo_alloc(inputSampleFmt, inputChannels, 1);
 
 #if LIBSWRESAMPLE_VERSION_MINOR >= 17
     av_opt_set_int(swrCxt, "inputChannel", inputChannels, 0);
-    av_opt_set_int(swrCxt, "outputChannel", pAudioCodecCxt->channels, 0);
-    av_opt_set_int(swrCxt, "inputSampleRate", inputSampleRate, 0);
-    av_opt_set_int(swrCxt, "outputSampleRate", pAudioCodecCxt->sample_rate, 0);
+    av_opt_set_int(swrCxt, "outputChannel", audioCodecCxt->channels, 0);
+    av_opt_set_int(swrCxt, "inputSampleRate", SAMPLERATE, 0);
+    av_opt_set_int(swrCxt, "outputSampleRate", audioCodecCxt->sample_rate, 0);
     av_opt_set_sample_fmt(swrCxt, "inputFmt", inputSampleFmt, 0);
-    av_opt_set_sample_fmt(swrCxt, "outputFmt", pAudioCodecCxt->sample_fmt, 0);
+    av_opt_set_sample_fmt(swrCxt, "outputFmt", audioCodecCxt->sample_fmt, 0);
 #else
     swrCxt = swr_alloc_set_opts(swrCxt,
                                 audioCodecCxt->channel_layout,
@@ -97,7 +98,7 @@ void initSwrContext(int inputSampleRate) {
                                 audioCodecCxt->sample_rate,
                                 av_get_default_channel_layout(inputChannels),
                                 inputSampleFmt,
-                                inputSampleRate,
+                                SAMPLERATE,
                                 0, NULL);
 #endif
     swr_init(swrCxt);
@@ -107,9 +108,9 @@ int init_samples_buffer() {
     int error;
 
     /**
-     * 分配足够的数组指针给sample buffer， 数组数量与声道数相关。
+     * 分配足够的数组指针给sample buffer， 数组数量与声道数和输入格式相关。
      */
-    if (!(inputSample = (uint8_t **) calloc(inputChannels, sizeof(*inputSample)))) {
+    if (!(inputSample = (uint8_t **) calloc(inputSampleFmt < AV_SAMPLE_FMT_U8P ? 1 : inputChannels, sizeof(*inputSample)))) {
         LOGE("Could not allocate sample pointers\n");
         return AVERROR(ENOMEM);
     }
@@ -159,7 +160,8 @@ int readAndConvert() {
     if (audioCodecCxt->codec->capabilities & CODEC_CAP_VARIABLE_FRAME_SIZE) {
         LOGE("aa");
     }
-    for (int i = 0; i < inputChannels; i++) {
+    int limit = inputSampleFmt < AV_SAMPLE_FMT_U8P ? 1 : inputChannels;
+    for (int i = 0; i < limit; i++) {
         memset(inputSample[i], 0, audioFrame->linesize[0]);
     }
     /**

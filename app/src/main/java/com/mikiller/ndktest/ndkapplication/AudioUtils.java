@@ -1,7 +1,5 @@
 package com.mikiller.ndktest.ndkapplication;
 
-import android.content.Context;
-import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.util.Log;
@@ -14,10 +12,10 @@ import java.nio.ByteBuffer;
 
 public class AudioUtils {
     private static final String TAG = AudioUtils.class.getSimpleName();
-
+    final int AUDIOSOURCE = MediaRecorder.AudioSource.MIC;
+    final int SAMPLERATE = 44100;
     AudioRecord audioRecord;
     int audioBufSize = 0;
-    int audioSource = MediaRecorder.AudioSource.MIC;
     byte[] sample;
     AudioRunnable audioRunnable;
     boolean isRelease;
@@ -37,13 +35,13 @@ public class AudioUtils {
         return audioRunnable;
     }
 
-    public void init(int sampleRate, int channelConfig, int audioFormat) {
-        audioBufSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat);
+    public void init(int channelConfig, int audioFormat) {
+        audioBufSize = AudioRecord.getMinBufferSize(SAMPLERATE, channelConfig, audioFormat);
         if (audioBufSize == AudioRecord.ERROR_BAD_VALUE) {
             Log.e(CameraActivity.class.getSimpleName(), "audio param is wrong");
             return;
         }
-        audioRecord = new AudioRecord(audioSource, sampleRate, channelConfig, audioFormat, audioBufSize);
+        audioRecord = new AudioRecord(AUDIOSOURCE, SAMPLERATE, channelConfig, audioFormat, audioBufSize);
         if (audioRecord.getState() == AudioRecord.STATE_UNINITIALIZED) {
             Log.e(CameraActivity.class.getSimpleName(), "init audio failed");
             return;

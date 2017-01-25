@@ -183,7 +183,7 @@ JNIEXPORT jint JNICALL
 Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initFFMpeg(JNIEnv *env, jclass type,
                                                             jstring outputUrl_,
                                                             jint width, jint height,
-                                                            jint channels, jint sampleRate,
+                                                            jint channels,
                                                             jint videoBitRate, jint audioBitRate) {
     outputUrl = (char *) env->GetStringUTFChars(outputUrl_, 0);
     AVCodecContext *pVideoCodecCxt = NULL;
@@ -237,7 +237,7 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initFFMpeg(JNIEnv *env, jclass 
     initAvVideoFrame();
     initAvAudioFrame();
 
-    initSwrContext(sampleRate);
+    initSwrContext();
     init_samples_buffer();
 
     pthread_mutex_init(&lock, NULL);

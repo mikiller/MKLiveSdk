@@ -31,7 +31,7 @@
             </intent-filter>
         </activity>
         <activity android:name=".CameraActivity"
-            android:screenOrientation="landscape" />
+            android:screenOrientation="landscape"/>
     </application>
 
 </manifest>

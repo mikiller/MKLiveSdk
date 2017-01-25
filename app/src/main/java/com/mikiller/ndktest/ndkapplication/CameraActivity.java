@@ -46,14 +46,15 @@ public class CameraActivity extends Activity {
     CheckBox ckb_play;
 
     String outputUrl;
-    CameraUtils cameraUtils;
-    int videoBitRate;
 
+    CameraUtils cameraUtils;
     AudioUtils audioUtils;
-    int sampleRate = 44100;
-    int channelConfig = AudioFormat.CHANNEL_IN_MONO; //立体声 声道
-    int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
+    int videoBitRate;
     int audioBitRate;
+
+    int channelConfig = AudioFormat.CHANNEL_IN_STEREO; //立体声 声道
+    int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
+
 
     boolean isNetWorkError = false;
     ExecutorService executorService;
@@ -111,7 +112,7 @@ public class CameraActivity extends Activity {
 
     private void initAudioRecord() {
         audioUtils = AudioUtils.getInstance();
-        audioUtils.init(sampleRate, channelConfig, audioFormat);
+        audioUtils.init(channelConfig, audioFormat);
     }
 
     private void initView(final Size previewSize) {
@@ -161,7 +162,7 @@ public class CameraActivity extends Activity {
     }
 
     private void initFFMpeg(Size previewSize) {
-        NDKImpl.initFFMpeg(outputUrl, previewSize.getWidth(), previewSize.getHeight(), channelConfig == AudioFormat.CHANNEL_IN_MONO ? 1 : 2, sampleRate, videoBitRate, audioBitRate);
+        NDKImpl.initFFMpeg(outputUrl, previewSize.getWidth(), previewSize.getHeight(), channelConfig == AudioFormat.CHANNEL_IN_MONO ? 1 : 2, videoBitRate, audioBitRate);
     }
 
     @Override

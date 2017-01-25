@@ -9,7 +9,7 @@ public class NDKImpl {
 
     public static native int pushRTMP(String input, String output);
 
-    public static native int initFFMpeg(String outputUrl, int width, int height, int channels, int sampleRate, int videoBitRate, int audioBitRate);
+    public static native int initFFMpeg(String outputUrl, int width, int height, int channels, int videoBitRate, int audioBitRate);
 
     public static native int saveAudioBuffer(byte[] bytes, int length);
 

@@ -2,6 +2,7 @@ package com.mikiller.ndktest.ndkapplication;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.SurfaceTexture;
@@ -19,6 +20,7 @@ import android.os.HandlerThread;
 import android.support.v4.app.ActivityCompat;
 import android.util.Log;
 import android.util.Size;
+import android.util.SparseIntArray;
 import android.view.Surface;
 
 import java.nio.ByteBuffer;
@@ -34,6 +36,13 @@ import java.util.List;
 @SuppressLint("NewApi")
 public class CameraUtils {
     private static final String TAG = CameraUtils.class.getSimpleName();
+    private static final SparseIntArray ORIENTATIONS = new SparseIntArray(); ///为了使照片竖直显示
+    static {
+        ORIENTATIONS.append(Surface.ROTATION_0, 90);
+        ORIENTATIONS.append(Surface.ROTATION_90, 0);
+        ORIENTATIONS.append(Surface.ROTATION_180, 270);
+        ORIENTATIONS.append(Surface.ROTATION_270, 180);
+    }
     static Context mContext;
     static CameraManager cameraManager;
     CameraDevice cameraDevice;
@@ -125,6 +134,9 @@ public class CameraUtils {
                     // 打开闪光灯
                     previewBuild.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH);
 
+                    int rotation = ((Activity)mContext).getWindowManager().getDefaultDisplay().getRotation();
+                    previewBuild.set(CaptureRequest.JPEG_ORIENTATION, ORIENTATIONS.get(rotation));
+
                     session.setRepeatingRequest(previewBuild.build(), null, handler);
                 } catch (CameraAccessException e) {
                     e.printStackTrace();
@@ -180,6 +192,7 @@ public class CameraUtils {
             if (size.getWidth() - defaultSize.getWidth() <= 0) {
                 if (size.getHeight() - defaultSize.getHeight() <= 0) {
                     maxSize = size;
+//                    maxSize = new Size(size.getHeight(), size.getWidth());
                     break;
                 }
             }

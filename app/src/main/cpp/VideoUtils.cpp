@@ -74,6 +74,8 @@ int initAvVideoFrame() {
     videoFrame->format = videoCodecCxt->pix_fmt;
     videoFrame->width = yuvWidth;
     videoFrame->height = yuvHeight;
+//    videoFrame->width = yuvHeight;
+//    videoFrame->height = yuvWidth;
     return av_frame_get_buffer(videoFrame, 32);
 }
 
@@ -152,6 +154,7 @@ int writeVideoFrame(AVFormatContext *outFormatCxt, int videoStreamId, int64_t st
         LOGE("video sleeptime: %lld", ptsTime - nowTime);
         av_usleep(ptsTime - nowTime);
     }
+    av_dict_set(&outFormatCxt->streams[videoStreamId]->metadata, "rotate", "90", 0);
     ret = av_interleaved_write_frame(outFormatCxt, &avVideoPacket);
     if (ret < 0) {
         LOGError("write video frame ret: %d, %s", ret);

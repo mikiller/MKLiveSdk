@@ -15,6 +15,7 @@ extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libswresample/swresample.h>
+#include <libavutil/opt.h>
 
 void initChannels(int);
 
@@ -28,7 +29,7 @@ AVStream* initAudioStream(AVFormatContext*, int *);
 
 int initAvAudioFrame();
 
-void initSwrContext(int);
+void initSwrContext();
 
 int init_samples_buffer();
 
