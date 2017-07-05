@@ -1,0 +1,14 @@
+prefix=/home/mikiller/Worker/MKFRSDK/temp/armeabi
+exec_prefix=${prefix}
+libdir=/home/mikiller/Worker/MKFRSDK/temp/armeabi/lib
+includedir=/home/mikiller/Worker/MKFRSDK/temp/armeabi/include
+
+Name: libavresample
+Description: Libav audio resampling library
+Version: 3.6.0
+Requires: 
+Requires.private: libavutil >= 55.66.100
+Conflicts:
+Libs: -L${libdir}  -lavresample 
+Libs.private: -lm
+Cflags: -I${includedir}

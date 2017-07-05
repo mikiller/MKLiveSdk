@@ -11,31 +11,25 @@ extern "C"{
 #include "PrivateUtils.h"
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
-
-
-void initYUVSize(int, int);
+#include <libavutil/imgutils.h>
 
 AVCodecID getVideoCodecId();
 
-AVCodecContext* initVideoCodecContext(int);
+AVCodecContext* initVideoCodecContext(int, int, int, int, int);
 
 int openVideoEncoder();
 
-AVStream* initAvVideoStream(AVFormatContext*, int *);
+int getVideoStreamId(AVFormatContext*);
 
 int initAvVideoFrame();
 
-AVRational getVideoTimebase();
+int analyzeNV21Data(uint8_t*);
 
-void analyzeYUVData(uint8_t *yData, uint8_t *uData, uint8_t *vData, int rowStride, int pixelStride);
+int encodeYUV(jboolean, int needFrame = true);
 
-int encodeYUV(int64_t *, int needFrame = true);
+int writeVideoFrame(AVFormatContext*, pthread_mutex_t*);
 
-int writeVideoFrame(AVFormatContext*, int, int64_t, int64_t*);
-
-void flushVideo(AVFormatContext*, int, int64_t *);
-
-int adjustFrame();
+void flushVideo(AVFormatContext*, pthread_mutex_t*);
 
 void freeVideoReference();
 

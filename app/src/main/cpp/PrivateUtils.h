@@ -27,6 +27,7 @@ extern "C"{
 
 static AVFormatContext *outFormatCxt = NULL;
 static int ret = 0;
+static long long ts;
 
 static void custom_log(void *ptr, int level, const char *fmt, va_list vl) {
     FILE *file = fopen("/storage/emulated/0/av_log.txt", "a+");
@@ -41,6 +42,15 @@ static void LOGError(char *format, int ret) {
     static char error_buffer[255];
     av_strerror(ret, error_buffer, sizeof(error_buffer));
     LOGE(format, ret, error_buffer);
+}
+
+static long long TSCalculate()
+{
+    struct timeval tsvalue;
+    struct timezone zone;
+    gettimeofday(&tsvalue, &zone);
+    long long tsvalue_present = (tsvalue.tv_sec * 1000ll) + (tsvalue.tv_usec / 1000ll);
+    return tsvalue_present;
 }
 
 void registFFMpeg();

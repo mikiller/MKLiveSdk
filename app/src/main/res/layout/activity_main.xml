@@ -31,7 +31,7 @@
             android:layout_weight="1"
             android:text="标清"
             android:checked="true"
-            android:tag="800"/>
+            android:tag="1"/>
 
         <RadioButton
             android:id="@+id/rdb_hd"
@@ -39,7 +39,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="高清"
-            android:tag="1200"/>
+            android:tag="2"/>
 
         <RadioButton
             android:id="@+id/rdb_op"
@@ -47,7 +47,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="原画"
-            android:tag="2400"/>
+            android:tag="3"/>
     </RadioGroup>
 
     <TextView
@@ -69,7 +69,7 @@
             android:layout_weight="1"
             android:text="流畅"
             android:checked="true"
-            android:tag="64"/>
+            android:tag="64000"/>
 
         <RadioButton
             android:id="@+id/rdb_st"
@@ -77,7 +77,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="标准"
-            android:tag="128"/>
+            android:tag="128000"/>
 
         <RadioButton
             android:id="@+id/rdb_hq"
@@ -85,7 +85,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="高品"
-            android:tag="320"/>
+            android:tag="320000"/>
     </RadioGroup>
 
     <TextView
@@ -105,7 +105,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="横屏" />
+            android:text="横屏"
+            android:tag="0"/>
 
         <RadioButton
             android:id="@+id/rdb_portrait"
@@ -113,7 +114,8 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="竖屏"
-            android:checked="true"/>
+            android:checked="true"
+            android:tag="90"/>
     </RadioGroup>
 
     <TextView

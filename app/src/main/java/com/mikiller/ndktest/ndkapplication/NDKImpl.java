@@ -5,17 +5,14 @@ package com.mikiller.ndktest.ndkapplication;
  */
 
 public class NDKImpl {
-    public native String helloWorld(String input);
 
-    public static native int pushRTMP(String input, String output);
+    public static native int initFFMpeg(String outputUrl, int orientation, int width, int height, int channels, int videoBitRate, int audioBitRate);
 
-    public static native int initFFMpeg(String outputUrl, int width, int height, int channels, int videoBitRate, int audioBitRate);
+    public static native int pushAudio(byte[] bytes);
 
-    public static native int saveAudioBuffer(byte[] bytes, int length);
+    public static native int pushVideo(byte[] bytes, boolean isPause);
 
-    public static native int encodeData(byte[] bytes, byte[] bytesU, byte[] bytesV, int rowStride, int pixelStride);
-
-    public static native void initStartTime();
+    public static native void initTS();
 
     public static native int flush();
 

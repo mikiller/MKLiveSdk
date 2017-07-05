@@ -2,17 +2,15 @@ package com.mikiller.ndktest.ndkapplication;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
-import android.app.Activity;
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
+import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureRequest;
-import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
 import android.media.ImageReader;
 import android.os.Handler;
@@ -20,14 +18,10 @@ import android.os.HandlerThread;
 import android.support.v4.app.ActivityCompat;
 import android.util.Log;
 import android.util.Size;
-import android.util.SparseIntArray;
 import android.view.Surface;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -36,23 +30,52 @@ import java.util.List;
 @SuppressLint("NewApi")
 public class CameraUtils {
     private static final String TAG = CameraUtils.class.getSimpleName();
-    private static final SparseIntArray ORIENTATIONS = new SparseIntArray(); ///为了使照片竖直显示
-    static {
-        ORIENTATIONS.append(Surface.ROTATION_0, 90);
-        ORIENTATIONS.append(Surface.ROTATION_90, 0);
-        ORIENTATIONS.append(Surface.ROTATION_180, 270);
-        ORIENTATIONS.append(Surface.ROTATION_270, 180);
+
+    public static enum VIDEOQUALITY{
+        STANDARD(800000, 640, 480), HIGH(1600000, 768, 432), ORIGINAL(3200000, 1280, 720);
+        private int bitRate;
+        private Size srcSize;
+        private VIDEOQUALITY(int rate, int w, int h){
+            bitRate = rate;
+            srcSize = new Size(w, h);
+        }
+
+        public int getBitRate(){
+            return bitRate;
+        }
+
+        public Size getPreviewSize(){
+            return srcSize;
+        }
+
+        public int getLandWidth(){
+            return srcSize.getWidth();
+        }
+
+        public int getPortWidth(){
+            return srcSize.getHeight();
+        }
+
+        public int getLandHeight(){
+            return srcSize.getHeight();
+        }
+
+        public int getPortHeight(){
+            return srcSize.getWidth();
+        }
     }
+
     static Context mContext;
     static CameraManager cameraManager;
     CameraDevice cameraDevice;
     ImageReader imageReader;
+    HandlerThread cameraThread;
     Handler handler;
     CameraDevice.StateCallback cameraCallback;
-    CameraCaptureSession.StateCallback stateCallback;
+    CameraCaptureSession.StateCallback captureCallback;
     Size previewSize;
     List<Surface> surfaceList = new ArrayList<>();
-    StreamTask streamTask = new StreamTask();
+    VideoRunnable videoRunnable;
     EncodeCallback encodeCallback;
 
     private CameraUtils() {
@@ -73,8 +96,8 @@ public class CameraUtils {
         return VideoUtilsFactory.instance;
     }
 
-    public StreamTask getStreamTask(){
-        return streamTask;
+    public VideoRunnable getVideoRunnable() {
+        return videoRunnable;
     }
 
     public EncodeCallback getEncodeCallback() {
@@ -86,11 +109,11 @@ public class CameraUtils {
     }
 
     public void init(Size defaultSize, int format, Surface... extSurfaces) {
-        HandlerThread thread = new HandlerThread("camera2");
-        thread.start();
-        handler = new Handler(thread.getLooper());
-        previewSize = getPreviewSize(defaultSize);
-
+        cameraThread = new HandlerThread("camera2");
+        cameraThread.start();
+        handler = new Handler(cameraThread.getLooper());
+        //previewSize = getPreviewSize(defaultSize);
+        previewSize = defaultSize;
         imageReader = ImageReader.newInstance(previewSize.getWidth(), previewSize.getHeight(), format, 1);
         surfaceList.add(imageReader.getSurface());
         if (extSurfaces != null) {
@@ -102,12 +125,14 @@ public class CameraUtils {
         cameraCallback = new CameraDevice.StateCallback() {
             @Override
             public void onOpened(CameraDevice camera) {
+                Log.e(TAG, "camera opened");
                 cameraDevice = camera;
-                startPreview(camera);
+                startPreview();
             }
 
             @Override
             public void onDisconnected(CameraDevice camera) {
+                Log.e(TAG, "camera disconnected");
                 camera.close();
                 cameraDevice = null;
             }
@@ -120,7 +145,7 @@ public class CameraUtils {
             }
         };
 
-        stateCallback = new CameraCaptureSession.StateCallback() {
+        captureCallback = new CameraCaptureSession.StateCallback() {
 
             @Override
             public void onConfigured(CameraCaptureSession session) {
@@ -129,13 +154,11 @@ public class CameraUtils {
                     for (Surface surface : surfaceList) {
                         previewBuild.addTarget(surface);
                     }
+                    previewBuild.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO);
                     // 自动对焦
                     previewBuild.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO);
                     // 打开闪光灯
                     previewBuild.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH);
-
-                    int rotation = ((Activity)mContext).getWindowManager().getDefaultDisplay().getRotation();
-                    previewBuild.set(CaptureRequest.JPEG_ORIENTATION, ORIENTATIONS.get(rotation));
 
                     session.setRepeatingRequest(previewBuild.build(), null, handler);
                 } catch (CameraAccessException e) {
@@ -149,60 +172,33 @@ public class CameraUtils {
                 release();
             }
         };
-    }
 
-    public Size getPreviewSize() {
-        return previewSize;
-    }
-
-    public Size getPreviewSize(Size defaultSize) {
-        Size previewSize = defaultSize;
-        try {
-            for (String id : cameraManager.getCameraIdList()) {
-                if (id.equals(String.valueOf(CameraCharacteristics.LENS_FACING_FRONT))) {
-                    CameraCharacteristics cc = cameraManager.getCameraCharacteristics(id);
-                    StreamConfigurationMap configurationMap = cc.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
-                    previewSize = getMaxSize(configurationMap.getOutputSizes(SurfaceTexture.class), defaultSize); // or use custom size
-                    break;
-                }
-            }
-        } catch (CameraAccessException e) {
-            e.printStackTrace();
-        } finally {
-            return previewSize;
-        }
-
-    }
-
-    private Size getMaxSize(Size[] sizes, Size defaultSize) {
-        Size maxSize = defaultSize;
-        if (sizes == null)
-            return maxSize;
-        Collections.sort(Arrays.asList(sizes), new Comparator<Size>() {
+        setPreviewCallback(new ImageReader.OnImageAvailableListener() {
             @Override
-            public int compare(Size lhs, Size rhs) {
-                if (rhs.getWidth() - lhs.getWidth() == 0)
-                    return rhs.getHeight() - lhs.getHeight();
-                return rhs.getWidth() - lhs.getWidth();
+            public void onImageAvailable(ImageReader reader) {
+                updateImage(reader.acquireNextImage());
             }
         });
+        videoRunnable = new VideoRunnable();
+    }
 
-        for (Size size : sizes) {
-            Log.e(CameraActivity.class.getSimpleName(), "w: " + size.getWidth() + " h: " + size.getHeight());
-            if (size.getWidth() - defaultSize.getWidth() <= 0) {
-                if (size.getHeight() - defaultSize.getHeight() <= 0) {
-                    maxSize = size;
-//                    maxSize = new Size(size.getHeight(), size.getWidth());
-                    break;
-                }
-            }
+    public void startPreview() {
+        try {
+            Log.e(TAG, "start preview and set captureCallback");
+            cameraDevice.createCaptureSession(surfaceList, captureCallback, handler);
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
         }
-        return maxSize;
     }
 
     public void setPreviewCallback(ImageReader.OnImageAvailableListener listener) {
         if (listener != null)
             imageReader.setOnImageAvailableListener(listener, handler);
+    }
+
+    public void updateImage(Image image) {
+        videoRunnable.setParams(getNV21Buffer(image));
+        image.close();
     }
 
     public void openCamera(String cameraId) {
@@ -212,14 +208,6 @@ public class CameraUtils {
         }
         try {
             cameraManager.openCamera(cameraId, cameraCallback, null);
-        } catch (CameraAccessException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public void startPreview(CameraDevice cameraDevice) {
-        try {
-            cameraDevice.createCaptureSession(surfaceList, stateCallback, handler);
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
@@ -237,26 +225,29 @@ public class CameraUtils {
         openCamera(cameraId);
     }
 
-    public void updateImage(Image image){
-        streamTask.setParams(getYUVBuffer(image), image.getPlanes()[1].getRowStride(), image.getPlanes()[1].getPixelStride());
-        synchronized (streamTask) {
-            streamTask.notify();
-        }
+    public void pause(){
+        videoRunnable.isPause = true;
     }
 
-    public byte[][] getYUVBuffer(Image image){
-        int planeSize = image.getPlanes().length;
-        ByteBuffer[] yuvBuffer = new ByteBuffer[planeSize];
-        byte[][] yuvbytes = new byte[planeSize][];
-        for (int i = 0; i < planeSize; i++) {
-            yuvBuffer[i] = image.getPlanes()[i].getBuffer();
-            yuvbytes[i] = new byte[yuvBuffer[i].remaining()];
-            yuvBuffer[i].get(yuvbytes[i]);
+    public void start(){
+        videoRunnable.isPause = false;
+    }
+
+    ByteBuffer nv21;
+    public byte[] getNV21Buffer(Image image){
+        ByteBuffer yBuffer = image.getPlanes()[0].getBuffer();
+        ByteBuffer uvBuffer = image.getPlanes()[2].getBuffer();
+        if(nv21 == null){
+            int bufferSize = yBuffer.remaining() + uvBuffer.remaining();
+            nv21 = ByteBuffer.allocate(bufferSize);
+        }else{
+            nv21.clear();
         }
-        return yuvbytes;
+        return nv21.put(yBuffer).put(uvBuffer).array();
     }
 
     public void release() {
+        videoRunnable.isLive = false;
         if (cameraDevice != null) {
             cameraDevice.close();
             cameraDevice = null;
@@ -264,44 +255,41 @@ public class CameraUtils {
         if (cameraDevice != null) {
             cameraDevice.close();
             cameraDevice = null;
+        }
+        for (Surface surface : surfaceList) {
+            surface.release();
         }
         surfaceList.clear();
-        handler.getLooper().getThread().interrupt();
-        handler.getLooper().quitSafely();
+        cameraThread.quitSafely();
     }
 
-    private class StreamTask implements Runnable {
+    private class VideoRunnable implements Runnable {
+        public boolean isLive = true, isPause = true;
+        byte[] nv21;
 
-        byte[][] yuvBytes;
-        int rowStride, pixelStride;
-
-        public void setParams(byte[][] yuvBytes, int rowStride, int pixelStride) {
-            this.yuvBytes = yuvBytes;
-            this.rowStride = rowStride;
-            this.pixelStride = pixelStride;
+        public void setParams(byte[] nv21){
+            this.nv21 = nv21;
         }
 
         @Override
         public void run() {
-            while (true) {
-                synchronized (streamTask) {
-                    try {
-                        this.wait();
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                }
-                final int ret = NDKImpl.encodeData(yuvBytes[0], yuvBytes[1], yuvBytes[2], rowStride, pixelStride);
-                if (ret < 0 && encodeCallback != null) {
-                    encodeCallback.onEncodeFailed(ret);
+            while (isLive) {
 
-                }
+//                if(!isPause) {
+                if(nv21 != null)
+                    NDKImpl.pushVideo(nv21, isPause);
+//                    if (ret < 0 && encodeCallback != null) {
+//                        encodeCallback.onEncodeFailed(ret);
+//                    }
+//                }
 
             }
+            isLive = true;
+            isPause = true;
         }
     }
 
-    public interface EncodeCallback{
+    public interface EncodeCallback {
         void onEncodeFailed(int error);
     }
 }

@@ -1,13 +1,13 @@
-prefix=../android-lib/armeabi
+prefix=/home/mikiller/Worker/MKFRSDK/temp/armeabi
 exec_prefix=${prefix}
-libdir=${prefix}/lib
-includedir=${prefix}/include
+libdir=/home/mikiller/Worker/MKFRSDK/temp/armeabi/lib
+includedir=/home/mikiller/Worker/MKFRSDK/temp/armeabi/include
 
 Name: libswscale
 Description: FFmpeg image rescaling library
-Version: 4.2.100
+Version: 4.7.101
 Requires: 
-Requires.private: libavutil >= 55.34.100
+Requires.private: libavutil >= 55.66.100
 Conflicts:
 Libs: -L${libdir}  -lswscale 
 Libs.private: -lm

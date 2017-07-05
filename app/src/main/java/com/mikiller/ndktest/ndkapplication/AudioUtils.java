@@ -17,8 +17,8 @@ public class AudioUtils {
     AudioRecord audioRecord;
     int audioBufSize = 0;
     byte[] sample;
+    ByteBuffer audioBuf;
     AudioRunnable audioRunnable;
-    boolean isRelease;
 
     private AudioUtils() {
     }
@@ -46,26 +46,31 @@ public class AudioUtils {
             Log.e(CameraActivity.class.getSimpleName(), "init audio failed");
             return;
         }
+//        audioRecord.startRecording();
         audioRunnable = new AudioRunnable();
-        isRelease = false;
     }
 
-    private boolean saveAudioBuffer() {
-        boolean ret = audioRecord.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING;
-        if (ret) {
-            sample = getAudioData();
-            NDKImpl.saveAudioBuffer(sample, sample.length);
-        }
-        return ret;
+    private void saveAudioBuffer(boolean isPause) {
+//        boolean ret = audioRecord.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING;
+//        if (ret) {
+                sample = getAudioData();
+                NDKImpl.pushAudio(sample);
+
+//        }
+//        return ret;
     }
 
     private byte[] getAudioData() {
-        ByteBuffer audioBuf = ByteBuffer.allocate(audioBufSize);
-        int ret = audioRecord.read(audioBuf.array(), 0, audioBuf.capacity());
-        if (ret < 0) {
+        if(audioBuf == null){
+            audioBuf = ByteBuffer.allocate(2048 * audioRecord.getChannelCount());
+        }else{
+            audioBuf.clear();
+        }
+
+        int ret = audioRecord.read(audioBuf.array(), 0, 2048*audioRecord.getChannelCount());
+        if(ret < 0){
             Log.e(CameraActivity.class.getSimpleName(), "get audio failed");
-        } else
-            audioBuf.limit(ret);
+        }
         return audioBuf.array();
     }
 
@@ -78,29 +83,37 @@ public class AudioUtils {
                 }
             } else {
                 audioRecord.stop();
+
             }
         }
     }
 
+    public void start(){
+        audioRecord.startRecording();
+        audioRunnable.isPause = false;
+    }
+
+    public void pause(){
+        audioRunnable.isPause = true;
+        audioRecord.stop();
+    }
+
     public void release(){
+        audioRunnable.isLive = false;
         audioRecord.stop();
         audioRecord.release();
-        isRelease = true;
     }
 
     private class AudioRunnable implements Runnable {
-
+        public boolean isLive = true, isPause = true;
         @Override
         public void run() {
-            while (!isRelease)
-                if (!saveAudioBuffer())
-                    synchronized (this) {
-                        try {
-                            wait();
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                    }
+            while (isLive) {
+//                if (!isPause)
+                    saveAudioBuffer(isPause);
+            }
+            isLive = true;
+            isPause = true;
         }
     }
 }

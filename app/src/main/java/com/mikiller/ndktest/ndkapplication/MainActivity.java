@@ -48,6 +48,8 @@ public class MainActivity extends AppCompatActivity {
     public RadioButton rdb_st;
     @BindView(R.id.rdb_hq)
     public RadioButton rdb_hq;
+    @BindView(R.id.rdg_screenOrientation)
+    public RadioGroup rdg_screenOrientation;
     @BindView(R.id.edt_input)
     public EditText edt_input;
     @BindView(R.id.edt_output)
@@ -124,11 +126,12 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View v) {
                 int videoQuality = Integer.parseInt((String) findViewById(rdg_video_quality.getCheckedRadioButtonId()).getTag());
                 int audioQuality = Integer.parseInt((String) findViewById(rdg_audio_quality.getCheckedRadioButtonId()).getTag());
-
+                int orientation = Integer.parseInt((String)findViewById(rdg_screenOrientation.getCheckedRadioButtonId()).getTag());
                 Intent intent = new Intent(MainActivity.this, CameraActivity.class);
                 intent.putExtra("outputUrl", outputUrl = edt_output.getText().toString());
                 intent.putExtra("videoQuality", videoQuality);
                 intent.putExtra("audioQuality", audioQuality);
+                intent.putExtra("orientation", orientation);
 //                intent.putExtra("outputUrl", outputUrl = filePath);
                 startActivity(intent);
             }
@@ -145,11 +148,12 @@ public class MainActivity extends AppCompatActivity {
      * A native method that is implemented by the 'native-lib' native library,
      * which is packaged with this application.
      */
-    public native String stringFromJNI();
+    //public native String stringFromJNI();
 
     // Used to load the 'native-lib' library on application startup.
     static {
         System.loadLibrary("ndktest");
+//        System.loadLibrary("FFMpegSDK");
 //        System.loadLibrary("ndk2");
     }
 }

@@ -17,35 +17,22 @@ extern "C" {
 #include <libswresample/swresample.h>
 #include <libavutil/opt.h>
 
-void initChannels(int);
-
 AVCodecID getAudioCodecId();
 
 AVCodecContext* initAudioCodecContext(int);
 
-int openAudioEncoder();
+int openAudioEncoder(char* aacprofile);
 
-AVStream* initAudioStream(AVFormatContext*, int *);
+int getAudioStreamId(AVFormatContext*);
 
 int initAvAudioFrame();
 
-void initSwrContext();
-
-int init_samples_buffer();
-
+int pushAudio(AVFormatContext *, uint8_t *, pthread_mutex_t* , int );
+int encodeAudio(uint8_t * , int needFrame = true);
+int writeAudioFrame(AVFormatContext *, pthread_mutex_t *);
 int add_samples_to_fifo(uint8_t **, int);
 
-int readAndConvert();
-
-bool needWriteAudioFrame();
-
-AVRational getAudioTimebase();
-
-int encodeAudio(int64_t* audioPts, int needFrame = true);
-
-int writeAudioFrame(AVFormatContext *outputFormat, int, int64_t, int64_t);
-
-void flushAudio(AVFormatContext *, int , int64_t *);
+void flushAudio(AVFormatContext *, pthread_mutex_t *);
 
 void freeAudioReference();
 

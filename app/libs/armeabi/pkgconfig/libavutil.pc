@@ -1,11 +1,11 @@
-prefix=../android-lib/armeabi
+prefix=/home/mikiller/Worker/MKFRSDK/temp/armeabi
 exec_prefix=${prefix}
-libdir=${prefix}/lib
-includedir=${prefix}/include
+libdir=/home/mikiller/Worker/MKFRSDK/temp/armeabi/lib
+includedir=/home/mikiller/Worker/MKFRSDK/temp/armeabi/include
 
 Name: libavutil
 Description: FFmpeg utility library
-Version: 55.34.100
+Version: 55.66.100
 Requires: 
 Requires.private: 
 Conflicts:
