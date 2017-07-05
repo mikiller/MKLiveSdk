@@ -11,9 +11,9 @@ extern "C" {
 #include "VideoUtils.h"
 
 char *outputUrl;
-pthread_mutex_t lock;
+pthread_mutex_t videolock;
 pthread_mutex_t audiolock;
-pthread_mutex_t datalock;
+pthread_mutex_t writelock;
 
 JNIEXPORT jint JNICALL
 Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initFFMpeg(JNIEnv *env, jclass type,
@@ -55,15 +55,13 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initFFMpeg(JNIEnv *env, jclass 
     initAvVideoFrame();
     initAvAudioFrame();
 
-    pthread_mutex_init(&lock, NULL);
+    pthread_mutex_init(&videolock, NULL);
     pthread_mutex_init(&audiolock, NULL);
-    pthread_mutex_init(&datalock, NULL);
+    pthread_mutex_init(&writelock, NULL);
 
-    audioPts = 0;
     ts = TSCalculate();
 
     env->ReleaseStringUTFChars(outputUrl_, outputUrl);
-    LOGE("init ffmpeg end");
     return 0;
 }
 
@@ -95,16 +93,16 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_pushVideo(JNIEnv *env, jclass t
     jbyte *jBuffer = (jbyte *) malloc(dataLength * sizeof(jbyte));
     env->GetByteArrayRegion(bytes_, 0, dataLength, jBuffer);
 
-    pthread_mutex_lock(&lock);
+    pthread_mutex_lock(&videolock);
     if(!isPause && (ret = analyzeNV21Data((uint8_t *) jBuffer) < 0)){
         LOGError("analyzeNV21Data failed: %d, %s", ret);
     }else if ((ret = encodeYUV(isPause)) < 0) {
         LOGError("encodeYUV failed: %d, %s", ret);
     }else{
-        ret = writeVideoFrame(outFormatCxt, &datalock);
+        ret = writeVideoFrame(outFormatCxt, &writelock);
     }
     av_usleep(1);
-    pthread_mutex_unlock(&lock);
+    pthread_mutex_unlock(&videolock);
 
     free(jBuffer);
     return ret;
@@ -120,7 +118,7 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_pushAudio(JNIEnv *env, jclass t
     if((ret = encodeAudio((uint8_t *) data)) < 0)
         LOGError("encode adataudio failed: %d, %s", ret);
     else {
-        ret = writeAudioFrame(outFormatCxt, &datalock);
+        ret = writeAudioFrame(outFormatCxt, &writelock);
     }
     av_usleep(1);
     pthread_mutex_unlock(&audiolock);
@@ -130,11 +128,11 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_pushAudio(JNIEnv *env, jclass t
 
 JNIEXPORT jint JNICALL
 Java_com_mikiller_ndktest_ndkapplication_NDKImpl_flush(JNIEnv *env, jclass type) {
-    pthread_mutex_lock(&lock);
-    flushVideo(outFormatCxt, &datalock);
-    pthread_mutex_unlock(&lock);
+    pthread_mutex_lock(&videolock);
+    flushVideo(outFormatCxt, &writelock);
+    pthread_mutex_unlock(&videolock);
     pthread_mutex_lock(&audiolock);
-    flushAudio(outFormatCxt, &datalock);
+    flushAudio(outFormatCxt, &writelock);
     pthread_mutex_unlock(&audiolock);
     return 0;
 }
@@ -150,7 +148,7 @@ JNIEXPORT void JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_setRotat
 }
 
 JNIEXPORT jint JNICALL
-Java_com_mikiller_ndktest_ndkapplication_NDKImpl_close(JNIEnv *env, jclass type) {
+Java_com_mikiller_ndktest_ndkapplication_NDKImpl_close(JNIEnv *, jclass ) {
 
     // TODO
     if (outFormatCxt)
@@ -181,8 +179,8 @@ jint end(AVFormatContext **inputFormatContext, AVFormatContext **outputFormatCon
     if (ret == AVERROR_EOF) {
         ret = 0;
     }
-    pthread_mutex_destroy(&lock);
-    pthread_mutex_destroy(&datalock);
+    pthread_mutex_destroy(&videolock);
+    pthread_mutex_destroy(&writelock);
     pthread_mutex_destroy(&audiolock);
     return ret;
 }

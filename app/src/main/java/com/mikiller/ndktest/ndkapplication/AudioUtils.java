@@ -47,19 +47,8 @@ public class AudioUtils {
             Log.e(CameraActivity.class.getSimpleName(), "init audio failed");
             return;
         }
-//        audioRecord.startRecording();
         audioRunnable = new AudioRunnable();
     }
-
-/*    private void saveAudioBuffer() {
-//        boolean ret = audioRecord.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING;
-//        if (ret) {
-                sample = getAudioData();
-                NDKImpl.pushAudio(sample);
-
-//        }
-//        return ret;
-    }*/
 
     private byte[] getAudioData() {
         if(audioBuf == null){
@@ -98,11 +87,9 @@ public class AudioUtils {
 
     private class AudioRunnable implements Runnable {
         public boolean isLive = true;
-        byte[] sample;
         @Override
         public void run() {
             while (isLive) {
-//                sample = getAudioData();
                 if(isStart)
                     NDKImpl.pushAudio(getAudioData());
             }

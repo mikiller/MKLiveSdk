@@ -8,18 +8,13 @@
 #include "AudioUtils.h"
 
 int SAMPLERATE = 44100;
+int duration = 1024 * 1000 / SAMPLERATE;
 
 AVCodecContext *audioCodecCxt = NULL;
 AVCodec *avAudioCodec = NULL;
 AVFrame *audioFrame = NULL;
-AVPacket avAudioPacket = {.data = NULL, .size = 0};
+AVPacket avAudioPacket;
 int audioStreamId;
-AVRational audioTimebase = {1, SAMPLERATE};
-
-AVSampleFormat inputSampleFmt = AV_SAMPLE_FMT_S16;
-
-SwrContext *swrCxt = NULL;
-uint64_t firstAudioTime = 0;
 
 AVCodecID getAudioCodecId() {
     if(!(avAudioCodec = avcodec_find_encoder_by_name("libfdk_aac"))){
@@ -42,7 +37,7 @@ AVCodecContext *initAudioCodecContext(int bitRate, int channels) {
     audioCodecCxt->channels = av_get_channel_layout_nb_channels(audioCodecCxt->channel_layout);
     audioCodecCxt->strict_std_compliance = FF_COMPLIANCE_EXPERIMENTAL;
     audioCodecCxt->bit_rate = bitRate;
-    audioCodecCxt->time_base = audioTimebase;
+    audioCodecCxt->time_base = {1, SAMPLERATE};
     audioCodecCxt->bits_per_raw_sample = 16;
     audioCodecCxt->flags |= CODEC_FLAG_GLOBAL_HEADER;
 
@@ -67,11 +62,6 @@ int getAudioStreamId(AVFormatContext* outFormatCxt){
     }
     avStream->time_base = audioCodecCxt->time_base;
     avcodec_parameters_from_context(avStream->codecpar, audioCodecCxt);
-
-
-    avAudioPacket.flags |= AV_PKT_FLAG_KEY;
-    avAudioPacket.stream_index = avStream->index;
-    avAudioPacket.duration = 1024 * 1000 / SAMPLERATE;
     return audioStreamId = avStream->index;
 }
 
@@ -115,7 +105,7 @@ int encodeAudio(uint8_t *data, int needFrame){
     }
     avAudioPacket.flags |= AV_PKT_FLAG_KEY;
     avAudioPacket.stream_index = audioStreamId;
-    avAudioPacket.duration = 1024 * 1000 / SAMPLERATE;
+    avAudioPacket.duration = duration;
     return ret;
 }
 
@@ -124,9 +114,6 @@ int writeAudioFrame(AVFormatContext *outFormatCxt, pthread_mutex_t *datalock){
         avAudioPacket.pts = TSCalculate() - ts;
         avAudioPacket.dts = avAudioPacket.pts;
     }
-    avAudioPacket.flags |= AV_PKT_FLAG_KEY;
-    avAudioPacket.stream_index = audioStreamId;
-    avAudioPacket.duration = 1024 * 1000 / SAMPLERATE;
     pthread_mutex_lock(datalock);
     ret = av_interleaved_write_frame(outFormatCxt, &avAudioPacket);
     if (ret < 0) {
@@ -140,7 +127,6 @@ int writeAudioFrame(AVFormatContext *outFormatCxt, pthread_mutex_t *datalock){
 
 void flushAudio (AVFormatContext *outFormatCxt, pthread_mutex_t *datalock) {
     while (encodeAudio(NULL, false) == 0){
-        LOGE("flush audio");
         writeAudioFrame(outFormatCxt, datalock);
         LOGError("flush audio : %d, %s", ret);
     }
@@ -148,19 +134,11 @@ void flushAudio (AVFormatContext *outFormatCxt, pthread_mutex_t *datalock) {
 
 void freeAudioReference() {
     if (audioCodecCxt != NULL && avcodec_is_open(audioCodecCxt)) {
-        LOGE("free audio codeccontext");
         avcodec_free_context(&audioCodecCxt);
-
-        LOGE("audio end");
     }
-//    if (audioFrame != NULL) {
-//        av_frame_free(&audioFrame);
-//        audioFrame = NULL;
-//    }
-//    if (inputSample) {
-//        av_freep(inputSample);
-//        inputSample = NULL;
-//    }
+    avAudioCodec = NULL;
+    if (audioFrame != NULL)
+        av_frame_free(&audioFrame);
 }
 
 #endif

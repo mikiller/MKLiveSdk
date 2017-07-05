@@ -48,7 +48,7 @@ AVCodecContext *initVideoCodecContext(int orientation, int width, int height, in
 
     videoCodecCxt->rc_max_rate = bitRate;
     videoCodecCxt->rc_min_rate = bitRate;
-    videoCodecCxt->rc_buffer_size = bitRate / 2;
+    videoCodecCxt->rc_buffer_size = bitRate >> 1;
     videoCodecCxt->bit_rate_tolerance = bitRate;
     videoCodecCxt->rc_initial_buffer_occupancy = videoCodecCxt->rc_buffer_size * 3 / 4;
 
@@ -104,14 +104,14 @@ int analyzeNV21Data(uint8_t *data) {
         I420 = new unsigned char[src_size];
         pDstY = I420;
         pDstU = I420 + Ysize;
-        pDstV = pDstU + (Ysize / 4);
+        pDstV = pDstU + (Ysize >> 2);
     } else {
         memset(I420, 0, src_size);
     }
     return libyuv::ConvertToI420(data, src_size,
                                  pDstY, videoCodecCxt->width,
-                                 pDstU, videoCodecCxt->width / 2,
-                                 pDstV, videoCodecCxt->width / 2,
+                                 pDstU, videoCodecCxt->width >> 1,
+                                 pDstV, videoCodecCxt->width >> 1,
                                  0, 0,
                                  in_width, in_height,
                                  in_width, in_height,
@@ -145,7 +145,7 @@ int encodeYUV(jboolean isPause, int needFrame) {
     }
     avVideoPacket.stream_index = videoStreamId;
     avVideoPacket.flags |= AV_PKT_FLAG_KEY;
-    avVideoPacket.duration = 1000 / 10;
+    avVideoPacket.duration = 100;
     return ret;
 }
 
@@ -177,11 +177,11 @@ void flushVideo(AVFormatContext *outFormatCxt, pthread_mutex_t *datalock) {
 
 void freeVideoReference() {
     if (videoCodecCxt != NULL && avcodec_is_open(videoCodecCxt)) {
-        LOGE("free vidio codeccontext");
         avcodec_free_context(&videoCodecCxt);
-        LOGE("end");
     }
-
+    videoCodec = NULL;
+    if(videoFrame != NULL)
+        av_frame_free(&videoFrame);
 }
 
 

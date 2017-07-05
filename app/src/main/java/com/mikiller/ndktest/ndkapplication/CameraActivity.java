@@ -86,10 +86,10 @@ public class CameraActivity extends AppCompatActivity {
         setContentView(R.layout.activity_camera);
         unbinder = ButterKnife.bind(this);
 
-        initFFMpeg(quality.getPreviewSize());
+        initFFMpeg(quality.getPreviewSize().first, quality.getPreviewSize().second);
         initCamera();
         initAudioRecord();
-        initView(quality.getPreviewSize());
+        initView(quality.getPreviewSize().first, quality.getPreviewSize().second);
         executorService = Executors.newFixedThreadPool(2);
         executorService.execute(cameraUtils.getVideoRunnable());
         executorService.execute(audioUtils.getAudioRunnable());
@@ -99,7 +99,7 @@ public class CameraActivity extends AppCompatActivity {
 //        oldCameraUtils = OldCameraUtils.getInstance(this);
 
         cameraUtils = CameraUtils.getInstance(this);
-        cameraUtils.init(quality.getPreviewSize(), ImageFormat.YUV_420_888, surfaceViewEx.getHolder().getSurface());
+        cameraUtils.init(quality.getPreviewSize().first, quality.getPreviewSize().second, ImageFormat.YUV_420_888, surfaceViewEx.getHolder().getSurface());
         cameraUtils.setEncodeCallback(new CameraUtils.EncodeCallback() {
             @Override
             public void onEncodeFailed(final int error) {
@@ -121,18 +121,18 @@ public class CameraActivity extends AppCompatActivity {
         audioUtils.init(channelConfig, audioFormat);
     }
 
-    private void initView(final Size previewSize) {
+    private void initView(final int width, final int height) {
         surfaceViewEx.getHolder().addCallback(new SurfaceHolder.Callback() {
             @Override
             public void surfaceCreated(SurfaceHolder holder) {
                 Log.e(TAG, "surface created");
-                holder.setFixedSize(previewSize.getWidth(), previewSize.getHeight());
+                holder.setFixedSize(width, height);
                 holder.setKeepScreenOn(true);
             }
 
             @Override
-            public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-                if(width == previewSize.getWidth()) {
+            public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) {
+                if(width == w) {
                     cameraUtils.openCamera(String.valueOf(cameraId));
 //                        new Thread(new Runnable() {
 //                            @Override
@@ -161,7 +161,7 @@ public class CameraActivity extends AppCompatActivity {
 //                    oldCameraUtils.pause();
                 } else{
                     if (isNetWorkError) {
-                        initFFMpeg(quality.getPreviewSize());
+                        initFFMpeg(quality.getPreviewSize().first, quality.getPreviewSize().second);
                         isNetWorkError = false;
                     }else{
                         Log.e(TAG, "start video thread");
@@ -169,10 +169,8 @@ public class CameraActivity extends AppCompatActivity {
                         cameraUtils.start();
                         audioUtils.start();
 //                        oldCameraUtils.start();
-//                        audioUtils.audioSwitch(isPlay);
                     }
                 }
-//                audioUtils.audioSwitch(isPlay);
             }
         });
 
@@ -186,14 +184,13 @@ public class CameraActivity extends AppCompatActivity {
 
     }
 
-    private void initFFMpeg(Size size) {
-        NDKImpl.initFFMpeg(outputUrl, orientation, size.getWidth(), size.getHeight(), channelConfig == AudioFormat.CHANNEL_IN_MONO ? 1 : 2, quality.getBitRate(), audioBitRate);
+    private void initFFMpeg(int width, int height) {
+        NDKImpl.initFFMpeg(outputUrl, orientation, width, height, channelConfig == AudioFormat.CHANNEL_IN_MONO ? 1 : 2, quality.getBitRate(), audioBitRate);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-//        ckb_play.setChecked(true);
     }
 
     @Override

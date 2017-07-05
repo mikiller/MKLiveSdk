@@ -4,6 +4,7 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.graphics.Rect;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
@@ -16,6 +17,7 @@ import android.media.ImageReader;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.support.v4.app.ActivityCompat;
+import android.support.v4.util.Pair;
 import android.util.Log;
 import android.util.Size;
 import android.view.Surface;
@@ -34,34 +36,18 @@ public class CameraUtils {
     public enum VIDEOQUALITY{
         STANDARD(800000, 640, 480), HIGH(1600000, 768, 432), ORIGINAL(3200000, 1280, 720);
         private int bitRate;
-        private Size srcSize;
+        private Pair<Integer, Integer> srcSize;
         VIDEOQUALITY(int rate, int w, int h){
             bitRate = rate;
-            srcSize = new Size(w, h);
+            srcSize = new Pair<>(w, h);
         }
 
         public int getBitRate(){
             return bitRate;
         }
 
-        public Size getPreviewSize(){
+        public Pair<Integer, Integer> getPreviewSize(){
             return srcSize;
-        }
-
-        public int getLandWidth(){
-            return srcSize.getWidth();
-        }
-
-        public int getPortWidth(){
-            return srcSize.getHeight();
-        }
-
-        public int getLandHeight(){
-            return srcSize.getHeight();
-        }
-
-        public int getPortHeight(){
-            return srcSize.getWidth();
         }
     }
 
@@ -73,7 +59,7 @@ public class CameraUtils {
     Handler handler;
     CameraDevice.StateCallback cameraCallback;
     CameraCaptureSession.StateCallback captureCallback;
-    Size previewSize;
+//    Size previewSize;
     List<Surface> surfaceList = new ArrayList<>();
     VideoRunnable videoRunnable;
     EncodeCallback encodeCallback;
@@ -110,13 +96,13 @@ public class CameraUtils {
         this.encodeCallback = encodeCallback;
     }
 
-    public void init(Size defaultSize, int format, Surface... extSurfaces) {
+    public void init(int width, int height, int format, Surface... extSurfaces) {
         cameraThread = new HandlerThread("camera2");
         cameraThread.start();
         handler = new Handler(cameraThread.getLooper());
         //previewSize = getPreviewSize(defaultSize);
-        previewSize = defaultSize;
-        imageReader = ImageReader.newInstance(previewSize.getWidth(), previewSize.getHeight(), format, 1);
+//        previewSize = defaultSize;
+        imageReader = ImageReader.newInstance(width, height, format, 1);
         surfaceList.add(imageReader.getSurface());
         if (extSurfaces != null) {
             for (Surface surface : extSurfaces) {
@@ -262,10 +248,6 @@ public class CameraUtils {
     public void release() {
         videoRunnable.isLive = false;
         isStart = false;
-        if (cameraDevice != null) {
-            cameraDevice.close();
-            cameraDevice = null;
-        }
         if (cameraDevice != null) {
             cameraDevice.close();
             cameraDevice = null;
