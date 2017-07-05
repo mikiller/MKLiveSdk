@@ -30,14 +30,15 @@ AVCodecID getAudioCodecId() {
     return avAudioCodec->id;
 }
 
-AVCodecContext *initAudioCodecContext(int bitRate) {
+AVCodecContext *initAudioCodecContext(int bitRate, int channels) {
     if (!(audioCodecCxt = avcodec_alloc_context3(avAudioCodec))) {
         LOGE("init avAudioContext failed");
         return NULL;
     }
+    LOGE("channels: %d", channels);
     audioCodecCxt->sample_fmt = avAudioCodec->sample_fmts[0];
     audioCodecCxt->sample_rate = SAMPLERATE;
-    audioCodecCxt->channel_layout = av_get_default_channel_layout(2);
+    audioCodecCxt->channel_layout = av_get_default_channel_layout(channels);
     audioCodecCxt->channels = av_get_channel_layout_nb_channels(audioCodecCxt->channel_layout);
     audioCodecCxt->strict_std_compliance = FF_COMPLIANCE_EXPERIMENTAL;
     audioCodecCxt->bit_rate = bitRate;
@@ -83,64 +84,6 @@ int initAvAudioFrame() {
     audioFrame->channels = audioCodecCxt->channels;
     audioFrame->channel_layout = audioCodecCxt->channel_layout;
     return av_frame_get_buffer(audioFrame, 0);
-}
-
-//void initSwrContext() {
-//    swrCxt = swr_alloc();
-//    fifo = av_audio_fifo_alloc(inputSampleFmt, inputChannels, 1);
-//
-//#if LIBSWRESAMPLE_VERSION_MINOR >= 17
-//    av_opt_set_int(swrCxt, "inputChannel", inputChannels, 0);
-//    av_opt_set_int(swrCxt, "outputChannel", audioCodecCxt->channels, 0);
-//    av_opt_set_int(swrCxt, "inputSampleRate", SAMPLERATE, 0);
-//    av_opt_set_int(swrCxt, "outputSampleRate", audioCodecCxt->sample_rate, 0);
-//    av_opt_set_sample_fmt(swrCxt, "inputFmt", inputSampleFmt, 0);
-//    av_opt_set_sample_fmt(swrCxt, "outputFmt", audioCodecCxt->sample_fmt, 0);
-//#else
-//    swrCxt = swr_alloc_set_opts(swrCxt,
-//                                audioCodecCxt->channel_layout,
-//                                audioCodecCxt->sample_fmt,
-//                                audioCodecCxt->sample_rate,
-//                                av_get_default_channel_layout(inputChannels),
-//                                inputSampleFmt,
-//                                SAMPLERATE,
-//                                0, NULL);
-//#endif
-//    swr_init(swrCxt);
-//}
-
-//int init_samples_buffer() {
-//    int error;
-//
-//    /**
-//     * 分配足够的数组指针给sample buffer， 数组数量与声道数和输入格式相关。
-//     */
-//    if (!(inputSample = (uint8_t **) calloc(inputSampleFmt < AV_SAMPLE_FMT_U8P ? 1 : inputChannels,
-//                                            sizeof(*inputSample)))) {
-//        LOGE("Could not allocate sample pointers\n");
-//        return AVERROR(ENOMEM);
-//    }
-//
-//    /**
-//     * 为每个数组分配空间。
-//     */
-//    if ((error = av_samples_alloc(inputSample, NULL, inputChannels, audioCodecCxt->frame_size,
-//                                  inputSampleFmt, 0)) < 0) {
-//        LOGError("Could not allocate converted input samples (error%d '%s')\n", error);
-//        av_freep(&inputSample[0]);
-//        free(inputSample);
-//        return error;
-//    }
-//    return 0;
-//}
-
-int pushAudio(AVFormatContext *outputFormat, uint8_t *samples, pthread_mutex_t* datalock, int tmp) {
-//    if((ret = encodeAudio(samples)) < 0)
-//        LOGError("encode audio failed: %d, %s", ret);
-//
-//    writeAudioFrame(outputFormat, datalock);
-//    av_usleep(1);
-    return 0;
 }
 
 int encodeAudio(uint8_t *data, int needFrame){

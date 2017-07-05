@@ -16,9 +16,10 @@ public class AudioUtils {
     final int SAMPLERATE = 44100;
     AudioRecord audioRecord;
     int audioBufSize = 0;
-    byte[] sample;
+    byte[] tmp;
     ByteBuffer audioBuf;
     AudioRunnable audioRunnable;
+    boolean isStart = false;
 
     private AudioUtils() {
     }
@@ -50,7 +51,7 @@ public class AudioUtils {
         audioRunnable = new AudioRunnable();
     }
 
-    private void saveAudioBuffer(boolean isPause) {
+/*    private void saveAudioBuffer() {
 //        boolean ret = audioRecord.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING;
 //        if (ret) {
                 sample = getAudioData();
@@ -58,7 +59,7 @@ public class AudioUtils {
 
 //        }
 //        return ret;
-    }
+    }*/
 
     private byte[] getAudioData() {
         if(audioBuf == null){
@@ -66,54 +67,46 @@ public class AudioUtils {
         }else{
             audioBuf.clear();
         }
-
-        int ret = audioRecord.read(audioBuf.array(), 0, 2048*audioRecord.getChannelCount());
-        if(ret < 0){
-            Log.e(CameraActivity.class.getSimpleName(), "get audio failed");
+        if(audioRecord.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) {
+            int ret = audioRecord.read(audioBuf.array(), 0, 2048 * audioRecord.getChannelCount());
+            if (ret < 0) {
+                Log.e(CameraActivity.class.getSimpleName(), "get audio failed");
+            }
+        }else{
+            if(tmp == null)
+                tmp = new byte[2048 * audioRecord.getChannelCount()];
+            audioBuf.put(tmp);
         }
         return audioBuf.array();
     }
 
-    public void audioSwitch(boolean isPlay) {
-        if (audioRecord != null) {
-            if (isPlay) {
-                audioRecord.startRecording();
-                synchronized (audioRunnable) {
-                    audioRunnable.notify();
-                }
-            } else {
-                audioRecord.stop();
-
-            }
-        }
-    }
-
     public void start(){
         audioRecord.startRecording();
-        audioRunnable.isPause = false;
+        isStart = true;
     }
 
     public void pause(){
-        audioRunnable.isPause = true;
         audioRecord.stop();
     }
 
     public void release(){
         audioRunnable.isLive = false;
+        isStart = false;
         audioRecord.stop();
         audioRecord.release();
     }
 
     private class AudioRunnable implements Runnable {
-        public boolean isLive = true, isPause = true;
+        public boolean isLive = true;
+        byte[] sample;
         @Override
         public void run() {
             while (isLive) {
-//                if (!isPause)
-                    saveAudioBuffer(isPause);
+//                sample = getAudioData();
+                if(isStart)
+                    NDKImpl.pushAudio(getAudioData());
             }
             isLive = true;
-            isPause = true;
         }
     }
 }

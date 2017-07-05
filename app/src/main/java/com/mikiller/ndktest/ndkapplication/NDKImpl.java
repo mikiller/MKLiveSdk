@@ -14,6 +14,8 @@ public class NDKImpl {
 
     public static native void initTS();
 
+    public static native void setRotate(int rotate);
+
     public static native int flush();
 
     public static native int close();

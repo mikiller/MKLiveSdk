@@ -41,6 +41,14 @@ JNIEXPORT void JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initTS
 
 /*
  * Class:     com_mikiller_ndktest_ndkapplication_NDKImpl
+ * Method:    setRotate
+ * Signature: (I)V
+ */
+JNIEXPORT void JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_setRotate
+  (JNIEnv *, jclass, jint);
+
+/*
+ * Class:     com_mikiller_ndktest_ndkapplication_NDKImpl
  * Method:    flush
  * Signature: ()I
  */

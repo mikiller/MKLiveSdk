@@ -19,7 +19,7 @@ extern "C" {
 
 AVCodecID getAudioCodecId();
 
-AVCodecContext* initAudioCodecContext(int);
+AVCodecContext* initAudioCodecContext(int, int);
 
 int openAudioEncoder(char* aacprofile);
 
@@ -27,10 +27,9 @@ int getAudioStreamId(AVFormatContext*);
 
 int initAvAudioFrame();
 
-int pushAudio(AVFormatContext *, uint8_t *, pthread_mutex_t* , int );
 int encodeAudio(uint8_t * , int needFrame = true);
+
 int writeAudioFrame(AVFormatContext *, pthread_mutex_t *);
-int add_samples_to_fifo(uint8_t **, int);
 
 void flushAudio(AVFormatContext *, pthread_mutex_t *);
 

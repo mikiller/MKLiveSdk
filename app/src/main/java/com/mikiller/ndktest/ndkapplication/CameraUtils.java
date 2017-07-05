@@ -31,11 +31,11 @@ import java.util.List;
 public class CameraUtils {
     private static final String TAG = CameraUtils.class.getSimpleName();
 
-    public static enum VIDEOQUALITY{
+    public enum VIDEOQUALITY{
         STANDARD(800000, 640, 480), HIGH(1600000, 768, 432), ORIGINAL(3200000, 1280, 720);
         private int bitRate;
         private Size srcSize;
-        private VIDEOQUALITY(int rate, int w, int h){
+        VIDEOQUALITY(int rate, int w, int h){
             bitRate = rate;
             srcSize = new Size(w, h);
         }
@@ -77,6 +77,8 @@ public class CameraUtils {
     List<Surface> surfaceList = new ArrayList<>();
     VideoRunnable videoRunnable;
     EncodeCallback encodeCallback;
+    ByteBuffer nv21;
+    boolean isStart = false;
 
     private CameraUtils() {
     }
@@ -215,14 +217,25 @@ public class CameraUtils {
 
     public void switchCamera() {
         String cameraId;
+        pause();
+
+        cameraDevice.close();
         if (cameraDevice.getId().equals(String.valueOf(CameraCharacteristics.LENS_FACING_BACK))) {
             cameraId = String.valueOf(CameraCharacteristics.LENS_FACING_FRONT);
-
+            NDKImpl.setRotate(90);
         } else {
             cameraId = String.valueOf(CameraCharacteristics.LENS_FACING_BACK);
+            NDKImpl.setRotate(270);
         }
-        cameraDevice.close();
+
         openCamera(cameraId);
+
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                start();
+            }
+        }, 350);
     }
 
     public void pause(){
@@ -230,10 +243,10 @@ public class CameraUtils {
     }
 
     public void start(){
+        isStart = true;
         videoRunnable.isPause = false;
     }
 
-    ByteBuffer nv21;
     public byte[] getNV21Buffer(Image image){
         ByteBuffer yBuffer = image.getPlanes()[0].getBuffer();
         ByteBuffer uvBuffer = image.getPlanes()[2].getBuffer();
@@ -248,6 +261,7 @@ public class CameraUtils {
 
     public void release() {
         videoRunnable.isLive = false;
+        isStart = false;
         if (cameraDevice != null) {
             cameraDevice.close();
             cameraDevice = null;
@@ -261,6 +275,7 @@ public class CameraUtils {
         }
         surfaceList.clear();
         cameraThread.quitSafely();
+        nv21 = null;
     }
 
     private class VideoRunnable implements Runnable {
@@ -275,13 +290,11 @@ public class CameraUtils {
         public void run() {
             while (isLive) {
 
-//                if(!isPause) {
-                if(nv21 != null)
+                if(isStart && nv21 != null)
                     NDKImpl.pushVideo(nv21, isPause);
 //                    if (ret < 0 && encodeCallback != null) {
 //                        encodeCallback.onEncodeFailed(ret);
 //                    }
-//                }
 
             }
             isLive = true;

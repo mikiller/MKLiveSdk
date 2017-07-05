@@ -29,6 +29,8 @@ int encodeYUV(jboolean, int needFrame = true);
 
 int writeVideoFrame(AVFormatContext*, pthread_mutex_t*);
 
+void setRotate(int);
+
 void flushVideo(AVFormatContext*, pthread_mutex_t*);
 
 void freeVideoReference();

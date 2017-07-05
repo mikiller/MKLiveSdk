@@ -11,7 +11,6 @@ extern "C" {
 #include "VideoUtils.h"
 
 char *outputUrl;
-int64_t audioPts = 0;
 pthread_mutex_t lock;
 pthread_mutex_t audiolock;
 pthread_mutex_t datalock;
@@ -33,7 +32,7 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initFFMpeg(JNIEnv *env, jclass 
     if (!(initVideoCodecContext(orientation, width, height, videoBitRate, 24))) {
         return end(NULL, &outFormatCxt);
     }
-    if (!(initAudioCodecContext(audioBitRate))) {
+    if (!(initAudioCodecContext(audioBitRate, channels))) {
         return end(NULL, &outFormatCxt);
     }
     if ((ret = openVideoEncoder()) < 0) {
@@ -118,7 +117,6 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_pushAudio(JNIEnv *env, jclass t
 
     // TODO
     pthread_mutex_lock(&audiolock);
-//    int ret = pushAudio(outFormatCxt, (uint8_t *) bytes, &datalock, /*audioStreamId*/0);
     if((ret = encodeAudio((uint8_t *) data)) < 0)
         LOGError("encode adataudio failed: %d, %s", ret);
     else {
@@ -133,7 +131,7 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_pushAudio(JNIEnv *env, jclass t
 JNIEXPORT jint JNICALL
 Java_com_mikiller_ndktest_ndkapplication_NDKImpl_flush(JNIEnv *env, jclass type) {
     pthread_mutex_lock(&lock);
-    flushVideo(outFormatCxt, /*videoStreamId*/&datalock);
+    flushVideo(outFormatCxt, &datalock);
     pthread_mutex_unlock(&lock);
     pthread_mutex_lock(&audiolock);
     flushAudio(outFormatCxt, &datalock);
@@ -144,6 +142,11 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_flush(JNIEnv *env, jclass type)
 JNIEXPORT void JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initTS
         (JNIEnv *, jclass) {
     ts = TSCalculate();
+}
+
+JNIEXPORT void JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_setRotate
+        (JNIEnv *, jclass, jint rotate){
+    setRotate(rotate);
 }
 
 JNIEXPORT jint JNICALL
@@ -174,9 +177,9 @@ jint end(AVFormatContext **inputFormatContext, AVFormatContext **outputFormatCon
     freeVideoReference();
     freeAudioReference();
 
-    if (ret < 0 && ret == AVERROR_EOF) {
-        LOGE("unknow error");
-        return -1;
+    LOGError("final error: %d, %s", ret);
+    if (ret == AVERROR_EOF) {
+        ret = 0;
     }
     pthread_mutex_destroy(&lock);
     pthread_mutex_destroy(&datalock);

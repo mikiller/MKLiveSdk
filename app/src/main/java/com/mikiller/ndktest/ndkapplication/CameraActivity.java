@@ -51,6 +51,7 @@ public class CameraActivity extends AppCompatActivity {
     OldCameraUtils oldCameraUtils;
     AudioUtils audioUtils;
     int orientation;
+    int cameraId;
     CameraUtils.VIDEOQUALITY quality;
     int audioBitRate;
 
@@ -77,7 +78,8 @@ public class CameraActivity extends AppCompatActivity {
                 break;
         }
         audioBitRate = getIntent().getIntExtra("audioQuality", 64000);
-        orientation = getIntent().getIntExtra("orientation",90);
+        orientation = getIntent().getIntExtra("orientation",270);
+        cameraId = getIntent().getIntExtra("cameraId", 1);
         setRequestedOrientation(orientation == ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE ? ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE : ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
 
         super.onCreate(savedInstanceState);
@@ -131,7 +133,7 @@ public class CameraActivity extends AppCompatActivity {
             @Override
             public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
                 if(width == previewSize.getWidth()) {
-                    cameraUtils.openCamera(String.valueOf(CameraCharacteristics.LENS_FACING_FRONT));
+                    cameraUtils.openCamera(String.valueOf(cameraId));
 //                        new Thread(new Runnable() {
 //                            @Override
 //                            public void run() {
@@ -202,13 +204,10 @@ public class CameraActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        Log.e(TAG, "camera activity destoryed");
         NDKImpl.flush();
-        Log.e(TAG, "ffmpeg flush");
-        NDKImpl.close();
-        Log.e(TAG, "ffmepg close");
         cameraUtils.release();
         audioUtils.release();
+        NDKImpl.close();
         unbinder.unbind();
 
     }

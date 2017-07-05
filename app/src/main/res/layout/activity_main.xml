@@ -115,7 +115,37 @@
             android:layout_weight="1"
             android:text="竖屏"
             android:checked="true"
-            android:tag="90"/>
+            android:tag="270"/>
+    </RadioGroup>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="选择摄像头："/>
+
+    <RadioGroup
+        android:id="@+id/rdg_camera"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="10dp">
+
+        <RadioButton
+            android:id="@+id/rdb_front"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="前置"
+            android:checked="true"
+            android:tag="1"/>
+
+        <RadioButton
+            android:id="@+id/rdb_backup"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="后置"
+            android:tag="0"/>
     </RadioGroup>
 
     <TextView

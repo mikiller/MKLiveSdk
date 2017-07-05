@@ -50,6 +50,8 @@ public class MainActivity extends AppCompatActivity {
     public RadioButton rdb_hq;
     @BindView(R.id.rdg_screenOrientation)
     public RadioGroup rdg_screenOrientation;
+    @BindView(R.id.rdg_camera)
+    public RadioGroup rdg_camera;
     @BindView(R.id.edt_input)
     public EditText edt_input;
     @BindView(R.id.edt_output)
@@ -127,11 +129,13 @@ public class MainActivity extends AppCompatActivity {
                 int videoQuality = Integer.parseInt((String) findViewById(rdg_video_quality.getCheckedRadioButtonId()).getTag());
                 int audioQuality = Integer.parseInt((String) findViewById(rdg_audio_quality.getCheckedRadioButtonId()).getTag());
                 int orientation = Integer.parseInt((String)findViewById(rdg_screenOrientation.getCheckedRadioButtonId()).getTag());
+                int cameraId = Integer.parseInt((String)findViewById(rdg_camera.getCheckedRadioButtonId()).getTag());
                 Intent intent = new Intent(MainActivity.this, CameraActivity.class);
                 intent.putExtra("outputUrl", outputUrl = edt_output.getText().toString());
                 intent.putExtra("videoQuality", videoQuality);
                 intent.putExtra("audioQuality", audioQuality);
                 intent.putExtra("orientation", orientation);
+                intent.putExtra("cameraId", cameraId);
 //                intent.putExtra("outputUrl", outputUrl = filePath);
                 startActivity(intent);
             }

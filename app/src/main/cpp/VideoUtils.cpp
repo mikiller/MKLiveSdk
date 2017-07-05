@@ -126,7 +126,6 @@ int encodeYUV(jboolean isPause, int needFrame) {
             videoFrame->pts = videoPts++;
         }
         ret = avcodec_send_frame(videoCodecCxt, videoFrame);
-
     }else{
         ret = avcodec_send_frame(videoCodecCxt, NULL);
         videoPts = 0;
@@ -163,6 +162,10 @@ int writeVideoFrame(AVFormatContext *outFormatCxt, pthread_mutex_t *datalock) {
     pthread_mutex_unlock(datalock);
     av_packet_unref(&avVideoPacket);
     return ret;
+}
+
+void setRotate(int rot){
+    rotate = rot;
 }
 
 void flushVideo(AVFormatContext *outFormatCxt, pthread_mutex_t *datalock) {
