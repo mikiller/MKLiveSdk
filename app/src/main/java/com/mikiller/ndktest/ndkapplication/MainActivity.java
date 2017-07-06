@@ -62,6 +62,7 @@ public class MainActivity extends AppCompatActivity {
     private String fileDir;
     private String filePath;
     private String outputUrl;
+    MKLiveSDK liveSdk;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -123,6 +124,7 @@ public class MainActivity extends AppCompatActivity {
 //            }
 //        });
 
+        liveSdk = MKLiveSDK.getInstance();
         btn_start_camera.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -130,14 +132,13 @@ public class MainActivity extends AppCompatActivity {
                 int audioQuality = Integer.parseInt((String) findViewById(rdg_audio_quality.getCheckedRadioButtonId()).getTag());
                 int orientation = Integer.parseInt((String)findViewById(rdg_screenOrientation.getCheckedRadioButtonId()).getTag());
                 int cameraId = Integer.parseInt((String)findViewById(rdg_camera.getCheckedRadioButtonId()).getTag());
-                Intent intent = new Intent(MainActivity.this, CameraActivity.class);
-                intent.putExtra("outputUrl", outputUrl = edt_output.getText().toString());
-                intent.putExtra("videoQuality", videoQuality);
-                intent.putExtra("audioQuality", audioQuality);
-                intent.putExtra("orientation", orientation);
-                intent.putExtra("cameraId", cameraId);
-//                intent.putExtra("outputUrl", outputUrl = filePath);
-                startActivity(intent);
+
+                liveSdk.setLiveArgs(edt_output.getText().toString(), videoQuality, cameraId, orientation, audioQuality);
+                try {
+                    liveSdk.callLiveActivity(MainActivity.this, null);
+                } catch (IllegalAccessException e) {
+                    e.printStackTrace();
+                }
             }
         });
     }

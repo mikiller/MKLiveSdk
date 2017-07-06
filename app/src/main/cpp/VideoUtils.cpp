@@ -57,7 +57,7 @@ AVCodecContext *initVideoCodecContext(int orientation, int width, int height, in
     videoCodecCxt->delay = 0;
     videoCodecCxt->thread_type = FF_THREAD_FRAME;
     videoCodecCxt->thread_count = 2;
-    //videoCodecCxt->qmin = 25;
+//    videoCodecCxt->qmin = 1;
 //    videoCodecCxt->qmax = 33; // 1-51, 10-30 is better
     videoCodecCxt->profile = FF_PROFILE_H264_BASELINE;
     videoCodecCxt->flags |= CODEC_FLAG_GLOBAL_HEADER;
@@ -149,7 +149,7 @@ int encodeYUV(jboolean isPause, int needFrame) {
     return ret;
 }
 
-int writeVideoFrame(AVFormatContext *outFormatCxt, pthread_mutex_t *datalock) {
+int writeVideoFrame(AVFormatContext *outFormatCxt, pthread_mutex_t *datalock, long long ts) {
     if (avVideoPacket.pts != AV_NOPTS_VALUE) {
         avVideoPacket.pts = TSCalculate() - ts;
         avVideoPacket.dts = avVideoPacket.pts;
@@ -170,8 +170,7 @@ void setRotate(int rot){
 
 void flushVideo(AVFormatContext *outFormatCxt, pthread_mutex_t *datalock) {
     while (encodeYUV(false, false) == 0) {
-        writeVideoFrame(outFormatCxt, datalock);
-        LOGError("flush video : %d, %s", ret);
+        writeVideoFrame(outFormatCxt, datalock, 0);
     }
 }
 

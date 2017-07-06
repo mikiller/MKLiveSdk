@@ -10,7 +10,7 @@ extern "C" {
 #include "AudioUtils.h"
 #include "VideoUtils.h"
 
-char *outputUrl;
+long long ts;
 pthread_mutex_t videolock;
 pthread_mutex_t audiolock;
 pthread_mutex_t writelock;
@@ -21,10 +21,10 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initFFMpeg(JNIEnv *env, jclass 
                                                             jint width, jint height,
                                                             jint channels,
                                                             jint videoBitRate, jint audioBitRate) {
-    outputUrl = (char *) env->GetStringUTFChars(outputUrl_, 0);
+    char* outputUrl = (char *) env->GetStringUTFChars(outputUrl_, 0);
     // TODO
     registFFMpeg();
-    if ((ret = init_and_open_outFormatCxt(&outFormatCxt, getVideoCodecId(),
+    if ((ret = init_and_open_outFormatCxt(&outFormatCxt, outputUrl, getVideoCodecId(),
                                           getAudioCodecId())) < 0) {
         LOGError("open outFormatCxt failed ret:%d, %s", ret);
         return end(NULL, &outFormatCxt);
@@ -60,7 +60,7 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initFFMpeg(JNIEnv *env, jclass 
     pthread_mutex_init(&writelock, NULL);
 
     ts = TSCalculate();
-
+    LOGE("ts1: %lld", ts);
     env->ReleaseStringUTFChars(outputUrl_, outputUrl);
     return 0;
 }
@@ -75,7 +75,7 @@ void registFFMpeg() {
     avformat_network_init();
 }
 
-int init_and_open_outFormatCxt(AVFormatContext **outFmtCxt,
+int init_and_open_outFormatCxt(AVFormatContext **outFmtCxt, char *outputUrl,
                                AVCodecID videoCodecId, AVCodecID audioCodecId) {
     if ((videoCodecId | audioCodecId) == AV_CODEC_ID_NONE)
         return AVERROR(AVERROR_ENCODER_NOT_FOUND);
@@ -99,7 +99,7 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_pushVideo(JNIEnv *env, jclass t
     }else if ((ret = encodeYUV(isPause)) < 0) {
         LOGError("encodeYUV failed: %d, %s", ret);
     }else{
-        ret = writeVideoFrame(outFormatCxt, &writelock);
+        ret = writeVideoFrame(outFormatCxt, &writelock, ts);
     }
     av_usleep(1);
     pthread_mutex_unlock(&videolock);
@@ -118,7 +118,7 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_pushAudio(JNIEnv *env, jclass t
     if((ret = encodeAudio((uint8_t *) data)) < 0)
         LOGError("encode adataudio failed: %d, %s", ret);
     else {
-        ret = writeAudioFrame(outFormatCxt, &writelock);
+        ret = writeAudioFrame(outFormatCxt, &writelock, ts);
     }
     av_usleep(1);
     pthread_mutex_unlock(&audiolock);
@@ -169,13 +169,11 @@ jint end(AVFormatContext **inputFormatContext, AVFormatContext **outputFormatCon
         }
         avformat_free_context(*outputFormatContext);
         *outputFormatContext = NULL;
-        LOGE("free outputFormat");
     }
 
     freeVideoReference();
     freeAudioReference();
 
-    LOGError("final error: %d, %s", ret);
     if (ret == AVERROR_EOF) {
         ret = 0;
     }

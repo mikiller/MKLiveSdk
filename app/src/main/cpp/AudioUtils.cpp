@@ -109,7 +109,7 @@ int encodeAudio(uint8_t *data, int needFrame){
     return ret;
 }
 
-int writeAudioFrame(AVFormatContext *outFormatCxt, pthread_mutex_t *datalock){
+int writeAudioFrame(AVFormatContext *outFormatCxt, pthread_mutex_t *datalock, long long ts){
     if(avAudioPacket.pts != AV_NOPTS_VALUE){
         avAudioPacket.pts = TSCalculate() - ts;
         avAudioPacket.dts = avAudioPacket.pts;
@@ -127,8 +127,7 @@ int writeAudioFrame(AVFormatContext *outFormatCxt, pthread_mutex_t *datalock){
 
 void flushAudio (AVFormatContext *outFormatCxt, pthread_mutex_t *datalock) {
     while (encodeAudio(NULL, false) == 0){
-        writeAudioFrame(outFormatCxt, datalock);
-        LOGError("flush audio : %d, %s", ret);
+        writeAudioFrame(outFormatCxt, datalock, 0);
     }
 }
 

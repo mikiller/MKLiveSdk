@@ -29,7 +29,7 @@ int initAvAudioFrame();
 
 int encodeAudio(uint8_t * , int needFrame = true);
 
-int writeAudioFrame(AVFormatContext *, pthread_mutex_t *);
+int writeAudioFrame(AVFormatContext *, pthread_mutex_t *, long long);
 
 void flushAudio(AVFormatContext *, pthread_mutex_t *);
 

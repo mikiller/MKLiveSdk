@@ -27,7 +27,7 @@ int analyzeNV21Data(uint8_t*);
 
 int encodeYUV(jboolean, int needFrame = true);
 
-int writeVideoFrame(AVFormatContext*, pthread_mutex_t*);
+int writeVideoFrame(AVFormatContext*, pthread_mutex_t*, long long);
 
 void setRotate(int);
 

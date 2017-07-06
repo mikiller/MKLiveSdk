@@ -1,10 +1,7 @@
 package com.mikiller.ndktest.ndkapplication;
 
-import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Context;
-import android.content.pm.PackageManager;
-import android.graphics.Rect;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
@@ -16,11 +13,9 @@ import android.media.Image;
 import android.media.ImageReader;
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.util.Pair;
 import android.util.Log;
-import android.util.Size;
 import android.view.Surface;
+import android.view.SurfaceHolder;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -33,25 +28,6 @@ import java.util.List;
 public class CameraUtils {
     private static final String TAG = CameraUtils.class.getSimpleName();
 
-    public enum VIDEOQUALITY{
-        STANDARD(800000, 640, 480), HIGH(1600000, 768, 432), ORIGINAL(3200000, 1280, 720);
-        private int bitRate;
-        private Pair<Integer, Integer> srcSize;
-        VIDEOQUALITY(int rate, int w, int h){
-            bitRate = rate;
-            srcSize = new Pair<>(w, h);
-        }
-
-        public int getBitRate(){
-            return bitRate;
-        }
-
-        public Pair<Integer, Integer> getPreviewSize(){
-            return srcSize;
-        }
-    }
-
-    static Context mContext;
     static CameraManager cameraManager;
     CameraDevice cameraDevice;
     ImageReader imageReader;
@@ -59,12 +35,8 @@ public class CameraUtils {
     Handler handler;
     CameraDevice.StateCallback cameraCallback;
     CameraCaptureSession.StateCallback captureCallback;
-//    Size previewSize;
     List<Surface> surfaceList = new ArrayList<>();
-    VideoRunnable videoRunnable;
-    EncodeCallback encodeCallback;
     ByteBuffer nv21;
-    boolean isStart = false;
 
     private CameraUtils() {
     }
@@ -80,33 +52,18 @@ public class CameraUtils {
     public static CameraUtils getInstance(Context context) {
         if (cameraManager == null)
             cameraManager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
-        mContext = context;
         return VideoUtilsFactory.instance;
     }
 
-    public VideoRunnable getVideoRunnable() {
-        return videoRunnable;
-    }
-
-    public EncodeCallback getEncodeCallback() {
-        return encodeCallback;
-    }
-
-    public void setEncodeCallback(EncodeCallback encodeCallback) {
-        this.encodeCallback = encodeCallback;
-    }
-
-    public void init(int width, int height, int format, Surface... extSurfaces) {
+    public void init(int width, int height, int format, SurfaceHolder... extSurfaceHolders) {
         cameraThread = new HandlerThread("camera2");
         cameraThread.start();
         handler = new Handler(cameraThread.getLooper());
-        //previewSize = getPreviewSize(defaultSize);
-//        previewSize = defaultSize;
         imageReader = ImageReader.newInstance(width, height, format, 1);
         surfaceList.add(imageReader.getSurface());
-        if (extSurfaces != null) {
-            for (Surface surface : extSurfaces) {
-                surfaceList.add(surface);
+        if (extSurfaceHolders != null) {
+            for (SurfaceHolder holder : extSurfaceHolders) {
+                surfaceList.add(holder.getSurface());
             }
         }
 
@@ -127,7 +84,7 @@ public class CameraUtils {
 
             @Override
             public void onError(CameraDevice camera, int error) {
-                Log.e(CameraActivity.class.getSimpleName(), "error:" + error);
+                Log.e(MKLiveActivity.class.getSimpleName(), "error:" + error);
                 camera.close();
                 cameraDevice = null;
             }
@@ -160,14 +117,6 @@ public class CameraUtils {
                 release();
             }
         };
-
-        setPreviewCallback(new ImageReader.OnImageAvailableListener() {
-            @Override
-            public void onImageAvailable(ImageReader reader) {
-                updateImage(reader.acquireNextImage());
-            }
-        });
-        videoRunnable = new VideoRunnable();
     }
 
     public void startPreview() {
@@ -184,16 +133,7 @@ public class CameraUtils {
             imageReader.setOnImageAvailableListener(listener, handler);
     }
 
-    public void updateImage(Image image) {
-        videoRunnable.setParams(getNV21Buffer(image));
-        image.close();
-    }
-
     public void openCamera(String cameraId) {
-        if (ActivityCompat.checkSelfPermission(mContext, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            // TODO: Consider calling
-            return;
-        }
         try {
             cameraManager.openCamera(cameraId, cameraCallback, null);
         } catch (CameraAccessException e) {
@@ -201,36 +141,20 @@ public class CameraUtils {
         }
     }
 
-    public void switchCamera() {
+    public int switchCamera() {
         String cameraId;
-        pause();
-
+        int rotation;
         cameraDevice.close();
         if (cameraDevice.getId().equals(String.valueOf(CameraCharacteristics.LENS_FACING_BACK))) {
             cameraId = String.valueOf(CameraCharacteristics.LENS_FACING_FRONT);
-            NDKImpl.setRotate(90);
+            rotation = 90;
         } else {
             cameraId = String.valueOf(CameraCharacteristics.LENS_FACING_BACK);
-            NDKImpl.setRotate(270);
+            rotation = 270;
         }
 
         openCamera(cameraId);
-
-        handler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                start();
-            }
-        }, 350);
-    }
-
-    public void pause(){
-        videoRunnable.isPause = true;
-    }
-
-    public void start(){
-        isStart = true;
-        videoRunnable.isPause = false;
+        return rotation;
     }
 
     public byte[] getNV21Buffer(Image image){
@@ -246,8 +170,6 @@ public class CameraUtils {
     }
 
     public void release() {
-        videoRunnable.isLive = false;
-        isStart = false;
         if (cameraDevice != null) {
             cameraDevice.close();
             cameraDevice = null;
@@ -260,31 +182,4 @@ public class CameraUtils {
         nv21 = null;
     }
 
-    private class VideoRunnable implements Runnable {
-        public boolean isLive = true, isPause = true;
-        byte[] nv21;
-
-        public void setParams(byte[] nv21){
-            this.nv21 = nv21;
-        }
-
-        @Override
-        public void run() {
-            while (isLive) {
-
-                if(isStart && nv21 != null)
-                    NDKImpl.pushVideo(nv21, isPause);
-//                    if (ret < 0 && encodeCallback != null) {
-//                        encodeCallback.onEncodeFailed(ret);
-//                    }
-
-            }
-            isLive = true;
-            isPause = true;
-        }
-    }
-
-    public interface EncodeCallback {
-        void onEncodeFailed(int error);
-    }
 }

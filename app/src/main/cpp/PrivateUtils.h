@@ -27,7 +27,6 @@ extern "C"{
 
 static AVFormatContext *outFormatCxt = NULL;
 static int ret = 0;
-static long long ts;
 
 static void custom_log(void *ptr, int level, const char *fmt, va_list vl) {
     FILE *file = fopen("/storage/emulated/0/av_log.txt", "a+");
@@ -55,7 +54,7 @@ static long long TSCalculate()
 
 void registFFMpeg();
 
-int init_and_open_outFormatCxt(AVFormatContext **, enum AVCodecID, enum AVCodecID);
+int init_and_open_outFormatCxt(AVFormatContext **, char*, enum AVCodecID, enum AVCodecID);
 
 jint end(AVFormatContext **inputFormatContext, AVFormatContext **outputFormatContext);
 

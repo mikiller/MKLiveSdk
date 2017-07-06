@@ -18,8 +18,6 @@ public class AudioUtils {
     int audioBufSize = 0;
     byte[] tmp;
     ByteBuffer audioBuf;
-    AudioRunnable audioRunnable;
-    boolean isStart = false;
 
     private AudioUtils() {
     }
@@ -32,25 +30,20 @@ public class AudioUtils {
         return AudioUtilsFactory.instance;
     }
 
-    public AudioRunnable getAudioRunnable(){
-        return audioRunnable;
-    }
-
     public void init(int channelConfig, int audioFormat) {
         audioBufSize = AudioRecord.getMinBufferSize(SAMPLERATE, channelConfig, audioFormat);
         if (audioBufSize == AudioRecord.ERROR_BAD_VALUE) {
-            Log.e(CameraActivity.class.getSimpleName(), "audio param is wrong");
+            Log.e(MKLiveActivity.class.getSimpleName(), "audio param is wrong");
             return;
         }
         audioRecord = new AudioRecord(AUDIOSOURCE, SAMPLERATE, channelConfig, audioFormat, audioBufSize);
         if (audioRecord.getState() == AudioRecord.STATE_UNINITIALIZED) {
-            Log.e(CameraActivity.class.getSimpleName(), "init audio failed");
+            Log.e(MKLiveActivity.class.getSimpleName(), "init audio failed");
             return;
         }
-        audioRunnable = new AudioRunnable();
     }
 
-    private byte[] getAudioData() {
+    public byte[] getAudioData() {
         if(audioBuf == null){
             audioBuf = ByteBuffer.allocate(2048 * audioRecord.getChannelCount());
         }else{
@@ -59,7 +52,7 @@ public class AudioUtils {
         if(audioRecord.getRecordingState() == AudioRecord.RECORDSTATE_RECORDING) {
             int ret = audioRecord.read(audioBuf.array(), 0, 2048 * audioRecord.getChannelCount());
             if (ret < 0) {
-                Log.e(CameraActivity.class.getSimpleName(), "get audio failed");
+                Log.e(MKLiveActivity.class.getSimpleName(), "get audio failed");
             }
         }else{
             if(tmp == null)
@@ -71,7 +64,6 @@ public class AudioUtils {
 
     public void start(){
         audioRecord.startRecording();
-        isStart = true;
     }
 
     public void pause(){
@@ -79,21 +71,7 @@ public class AudioUtils {
     }
 
     public void release(){
-        audioRunnable.isLive = false;
-        isStart = false;
         audioRecord.stop();
         audioRecord.release();
-    }
-
-    private class AudioRunnable implements Runnable {
-        public boolean isLive = true;
-        @Override
-        public void run() {
-            while (isLive) {
-                if(isStart)
-                    NDKImpl.pushAudio(getAudioData());
-            }
-            isLive = true;
-        }
     }
 }
