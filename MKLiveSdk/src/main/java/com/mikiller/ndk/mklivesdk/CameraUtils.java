@@ -1,4 +1,4 @@
-package com.mikiller.ndktest.ndkapplication;
+package com.mikiller.ndk.mklivesdk;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
@@ -155,6 +155,14 @@ public class CameraUtils {
 
         openCamera(cameraId);
         return rotation;
+    }
+
+    public void switchFlash(boolean isOpen){
+        try {
+            cameraManager.setTorchMode("0", isOpen);
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
     }
 
     public byte[] getNV21Buffer(Image image){

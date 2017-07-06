@@ -1,9 +1,7 @@
-package com.mikiller.ndktest.ndkapplication;
+package com.mikiller.ndk.mklivesdk;
 
 import android.annotation.SuppressLint;
-import android.os.Build;
 import android.os.Bundle;
-import android.support.annotation.RequiresApi;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
@@ -14,40 +12,32 @@ import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.ImageButton;
 
-import butterknife.BindView;
-import butterknife.ButterKnife;
-import butterknife.Unbinder;
-
-import static com.mikiller.ndktest.ndkapplication.MKLiveSDK.NETWORK_ERR;
-
 /**
  * Created by Mikiller on 2016/12/2.
  */
 @SuppressLint("NewApi")
 public class MKLiveActivity extends AppCompatActivity {
     private static final String TAG = MKLiveActivity.class.getSimpleName();
-    Unbinder unbinder;
 
-    @BindView(R.id.surfaceViewEx)
     SurfaceView surfaceViewEx;
-    @BindView(R.id.SwitchCamerabutton)
-    ImageButton SwitchCamerabutton;
-    @BindView(R.id.FlashCamerabutton)
-    ImageButton FlashCamerabutton;
-    @BindView(R.id.ckb_play)
+    ImageButton switchCamerabutton;
+    ImageButton flashCamerabutton;
     CheckBox ckb_play;
 
     boolean isNetWorkError = false;
     private MKLiveSDK liveSDK;
+    boolean flashOn = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         liveSDK = MKLiveSDK.getInstance(this);
         liveSDK.setOrientation(this);
-
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_camera);
-        unbinder = ButterKnife.bind(this);
+        surfaceViewEx = (SurfaceView) findViewById(R.id.surfaceViewEx);
+        switchCamerabutton = (ImageButton) findViewById(R.id.SwitchCamerabutton);
+        flashCamerabutton = (ImageButton) findViewById(R.id.FlashCamerabutton);
+        ckb_play = (CheckBox) findViewById(R.id.ckb_play);
 
         liveSDK.init(new MKLiveSDK.EncodeCallback() {
             @Override
@@ -58,17 +48,17 @@ public class MKLiveActivity extends AppCompatActivity {
             @Override
             public void onEncodeFailed(final int error) {
 
-                    ckb_play.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            if(ckb_play != null)
+                ckb_play.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (ckb_play != null)
                             ckb_play.setChecked(false);
-                            if (error == NETWORK_ERR) {
-                                isNetWorkError = true;
-                                new AlertDialog.Builder(MKLiveActivity.this).setTitle("网络故障").setMessage("直播中断，请检查网络").setPositiveButton("确定", null).show();
-                            }
+                        if (error == MKLiveSDK.NETWORK_ERR) {
+                            isNetWorkError = true;
+                            new AlertDialog.Builder(MKLiveActivity.this).setTitle("网络故障").setMessage("直播中断，请检查网络").setPositiveButton("确定", null).show();
                         }
-                    });
+                    }
+                });
 
             }
         }, surfaceViewEx.getHolder());
@@ -87,7 +77,7 @@ public class MKLiveActivity extends AppCompatActivity {
 
             @Override
             public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) {
-                if(width == w) {
+                if (width == w) {
                     liveSDK.openCamera();
                 }
             }
@@ -105,23 +95,31 @@ public class MKLiveActivity extends AppCompatActivity {
                 if (!isChecked) {
                     Log.e(TAG, "pause video thread");
                     liveSDK.pause();
-                } else{
+                    buttonView.setText(" 开 始 ");
+                } else {
                     if (isNetWorkError) {
                         liveSDK.initFFMpeg();
                         isNetWorkError = false;
                     }
-                        Log.e(TAG, "start video thread");
-                        liveSDK.start();
+                    Log.e(TAG, "start video thread");
+                    liveSDK.start();
+                    buttonView.setText(" 暂 停 ");
 
                 }
             }
         });
 
-        SwitchCamerabutton.setOnClickListener(new View.OnClickListener() {
-            @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
+        switchCamerabutton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 liveSDK.switchCamera();
+            }
+        });
+
+        flashCamerabutton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                liveSDK.switchFlash(flashOn = !flashOn);
             }
         });
 
@@ -141,11 +139,8 @@ public class MKLiveActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         liveSDK.onDestory();
-        unbinder.unbind();
 
     }
-
-
 
 
 }

@@ -1,26 +1,17 @@
-package com.mikiller.ndktest.ndkapplication;
+package com.mikiller.sample;
 
-import android.content.Context;
-import android.content.Intent;
-import android.hardware.Camera;
-import android.hardware.camera2.CameraManager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
-import android.text.method.ScrollingMovementMethod;
-import android.util.DisplayMetrics;
-import android.util.Log;
-import android.view.TextureView;
 import android.view.View;
-import android.view.inputmethod.EditorInfo;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
-import android.widget.TextView;
-import android.widget.Toast;
+
+import com.mikiller.ndk.mklivesdk.MKLiveSDK;
 
 import java.io.File;
 import java.io.IOException;
@@ -61,7 +52,6 @@ public class MainActivity extends AppCompatActivity {
 
     private String fileDir;
     private String filePath;
-    private String outputUrl;
     MKLiveSDK liveSdk;
 
     @Override

@@ -1,9 +1,7 @@
-package com.mikiller.ndktest.ndkapplication;
+package com.mikiller.ndk.mklivesdk;
 
-import android.content.Context;
 import android.graphics.ImageFormat;
 import android.hardware.Camera;
-import android.util.Log;
 import android.view.SurfaceHolder;
 
 import java.util.List;
@@ -98,6 +96,13 @@ public class OldCameraUtils {
         initCamera(holder, mVideoWidth, mVideoHeight, cameraId, orientation);
         setPreviewCallback(mCallback);
         return cameraId == 0 ? orientation : (360 - orientation) % 360;
+    }
+
+    public void switchFlash(boolean isOpen){
+        Camera.Parameters parameters = mCamera.getParameters();
+        if(isOpen)
+        parameters.setFlashMode(isOpen ? Camera.Parameters.FLASH_MODE_TORCH : Camera.Parameters.FLASH_MODE_OFF);
+        mCamera.setParameters(parameters);
     }
 
     public void release() {

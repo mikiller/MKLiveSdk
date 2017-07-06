@@ -1,4 +1,4 @@
-package com.mikiller.ndktest.ndkapplication;
+package com.mikiller.ndk.mklivesdk;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
@@ -149,6 +149,7 @@ public class MKLiveSDK {
 
     @SuppressLint("NewApi")
     private void initCamera(EncodeCallback encodeCallback, final SurfaceHolder... extSurfaceHolders) {
+        this.encodeCallback = encodeCallback;
         if (ActivityCompat.checkSelfPermission(mContext, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             // TODO: Consider calling
             encodeCallback.onPermissionFailed(Manifest.permission.CAMERA);
@@ -183,7 +184,6 @@ public class MKLiveSDK {
             }).start();
 
         }
-        this.encodeCallback = encodeCallback;
     }
 
     private void initAudioRecord() {
@@ -196,7 +196,7 @@ public class MKLiveSDK {
     }
 
     public void openCamera() {
-        if (newApi) {
+        if (newApi && cameraUtils != null) {
             cameraUtils.openCamera(String.valueOf(cameraId));
         }
     }
@@ -223,6 +223,14 @@ public class MKLiveSDK {
         }
     }
 
+    public void switchFlash(boolean isOpen){
+        if(newApi){
+            cameraUtils.switchFlash(isOpen);
+        }else{
+            oldCameraUtils.switchFlash(isOpen);
+        }
+    }
+
     public void start() {
         if(!isStart) {
             isStart = true;
@@ -241,11 +249,16 @@ public class MKLiveSDK {
         NDKImpl.flush();
         liveRunnable.isLive = false;
         isStart = false;
-        if (newApi)
-            cameraUtils.release();
-        else
-            oldCameraUtils.release();
-        audioUtils.release();
+        if (newApi) {
+            if(cameraUtils != null)
+                cameraUtils.release();
+        }
+        else {
+            if(oldCameraUtils != null)
+                oldCameraUtils.release();
+        }
+        if(audioUtils != null)
+            audioUtils.release();
         NDKImpl.close();
     }
 

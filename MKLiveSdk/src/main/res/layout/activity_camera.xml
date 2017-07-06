@@ -3,8 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/cameraRelative"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:theme="@android:style/Theme.NoTitleBar.Fullscreen" >
+    android:layout_height="match_parent" >
 
     <SurfaceView
         android:id="@+id/surfaceViewEx"
@@ -12,23 +11,36 @@
         android:layout_height="match_parent"/>
     <ImageButton
         android:id="@+id/SwitchCamerabutton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignBottom="@+id/surfaceViewEx"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
+        android:layout_alignBottom="@+id/ckb_play"
+        android:layout_marginLeft="15dp"
         android:src="@mipmap/ic_action_name"
+        android:scaleY="1.5"
+        android:scaleX="1.5"
         android:background="#00000000"/>
     <ImageButton
         android:id="@+id/FlashCamerabutton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignRight="@+id/surfaceViewEx"
+        android:layout_alignBottom="@+id/ckb_play"
+        android:layout_marginRight="15dp"
+        android:scaleX="1.5"
+        android:scaleY="1.5"
         android:src="@mipmap/ic_action_flash"
         android:background="#00000000"/>
     <CheckBox
         android:id="@+id/ckb_play"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:background="@drawable/selector_camera_play"
+        android:background="@drawable/shape_live_switch"
+        android:button="@null"
+        android:text=" 开 始 "
+        android:textColor="@android:color/white"
+        android:textSize="18sp"
+        android:padding="10dp"
+        android:layout_marginBottom="10dp"
         android:layout_centerHorizontal="true"
         android:layout_alignParentBottom="true"/>
 </RelativeLayout>

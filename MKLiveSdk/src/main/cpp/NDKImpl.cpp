@@ -16,7 +16,7 @@ pthread_mutex_t audiolock;
 pthread_mutex_t writelock;
 
 JNIEXPORT jint JNICALL
-Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initFFMpeg(JNIEnv *env, jclass type,
+Java_com_mikiller_ndk_mklivesdk_NDKImpl_initFFMpeg(JNIEnv *env, jclass type,
                                                             jstring outputUrl_, jint orientation,
                                                             jint width, jint height,
                                                             jint channels,
@@ -87,7 +87,7 @@ int init_and_open_outFormatCxt(AVFormatContext **outFmtCxt, char *outputUrl,
 }
 
 JNIEXPORT jint JNICALL
-Java_com_mikiller_ndktest_ndkapplication_NDKImpl_pushVideo(JNIEnv *env, jclass type,
+Java_com_mikiller_ndk_mklivesdk_NDKImpl_pushVideo(JNIEnv *env, jclass type,
                                                             jbyteArray bytes_, jboolean isPause) {
     jint dataLength = env->GetArrayLength(bytes_);
     jbyte *jBuffer = (jbyte *) malloc(dataLength * sizeof(jbyte));
@@ -109,7 +109,7 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_pushVideo(JNIEnv *env, jclass t
 }
 
 JNIEXPORT jint JNICALL
-Java_com_mikiller_ndktest_ndkapplication_NDKImpl_pushAudio(JNIEnv *env, jclass type,
+Java_com_mikiller_ndk_mklivesdk_NDKImpl_pushAudio(JNIEnv *env, jclass type,
                                                                  jbyteArray bytes_) {
     jbyte *data = env->GetByteArrayElements(bytes_, NULL);
 
@@ -127,7 +127,7 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_pushAudio(JNIEnv *env, jclass t
 }
 
 JNIEXPORT jint JNICALL
-Java_com_mikiller_ndktest_ndkapplication_NDKImpl_flush(JNIEnv *env, jclass type) {
+Java_com_mikiller_ndk_mklivesdk_NDKImpl_flush(JNIEnv *env, jclass type) {
     pthread_mutex_lock(&videolock);
     flushVideo(outFormatCxt, &writelock);
     pthread_mutex_unlock(&videolock);
@@ -137,18 +137,18 @@ Java_com_mikiller_ndktest_ndkapplication_NDKImpl_flush(JNIEnv *env, jclass type)
     return 0;
 }
 
-JNIEXPORT void JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_initTS
+JNIEXPORT void JNICALL Java_com_mikiller_ndk_mklivesdk_NDKImpl_initTS
         (JNIEnv *, jclass) {
     ts = TSCalculate();
 }
 
-JNIEXPORT void JNICALL Java_com_mikiller_ndktest_ndkapplication_NDKImpl_setRotate
+JNIEXPORT void JNICALL Java_com_mikiller_ndk_mklivesdk_NDKImpl_setRotate
         (JNIEnv *, jclass, jint rotate){
     setRotate(rotate);
 }
 
 JNIEXPORT jint JNICALL
-Java_com_mikiller_ndktest_ndkapplication_NDKImpl_close(JNIEnv *, jclass ) {
+Java_com_mikiller_ndk_mklivesdk_NDKImpl_close(JNIEnv *, jclass ) {
 
     // TODO
     if (outFormatCxt)

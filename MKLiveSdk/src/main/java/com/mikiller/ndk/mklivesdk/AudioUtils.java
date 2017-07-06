@@ -1,4 +1,4 @@
-package com.mikiller.ndktest.ndkapplication;
+package com.mikiller.ndk.mklivesdk;
 
 import android.media.AudioRecord;
 import android.media.MediaRecorder;

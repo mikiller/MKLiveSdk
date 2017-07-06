@@ -1,5 +1,4 @@
-apply plugin: 'com.android.application'
-apply plugin: 'com.neenbedankt.android-apt'
+apply plugin: 'com.android.library'
 
 android {
     compileSdkVersion 23
@@ -8,7 +7,7 @@ android {
         enabled true
     }
     defaultConfig {
-        applicationId "com.mikiller.ndktest.ndkapplication"
+        //applicationId "com.mikiller.ndktest.ndkapplication"
         minSdkVersion 17
         targetSdkVersion 23
         versionCode 1
@@ -56,6 +55,4 @@ dependencies {
     })
     compile 'com.android.support:appcompat-v7:23.+'
     testCompile 'junit:junit:4.12'
-    compile 'com.jakewharton:butterknife:8.4.0'
-    apt 'com.jakewharton:butterknife-compiler:8.4.0'
 }

@@ -1,4 +1,4 @@
-package com.mikiller.ndktest.ndkapplication;
+package com.mikiller.ndk.mklivesdk;
 
 /**
  * Created by Mikiller on 2016/11/24.
