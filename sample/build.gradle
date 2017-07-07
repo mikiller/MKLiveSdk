@@ -32,5 +32,5 @@ dependencies {
     testCompile 'junit:junit:4.12'
     compile 'com.jakewharton:butterknife:8.4.0'
     apt 'com.jakewharton:butterknife-compiler:8.4.0'
-    compile project(':MKLiveSdk')
+    compile project(':live_sdk')
 }

@@ -1,1 +1,1 @@
-include ':MKLiveSdk', ':sample'
+include ':live_sdk', ':sample'

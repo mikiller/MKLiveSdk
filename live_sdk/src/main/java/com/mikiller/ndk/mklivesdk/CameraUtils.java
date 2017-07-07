@@ -29,7 +29,10 @@ public class CameraUtils {
     private static final String TAG = CameraUtils.class.getSimpleName();
 
     static CameraManager cameraManager;
+    String cameraId;
     CameraDevice cameraDevice;
+    CameraCaptureSession cSession;
+    CaptureRequest.Builder previewBuild;
     ImageReader imageReader;
     HandlerThread cameraThread;
     Handler handler;
@@ -95,16 +98,17 @@ public class CameraUtils {
             @Override
             public void onConfigured(CameraCaptureSession session) {
                 try {
-                    CaptureRequest.Builder previewBuild = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
+                    cSession = session;
+                    previewBuild = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
                     for (Surface surface : surfaceList) {
                         previewBuild.addTarget(surface);
                     }
                     previewBuild.set(CaptureRequest.CONTROL_MODE, CameraMetadata.CONTROL_MODE_AUTO);
                     // 自动对焦
                     previewBuild.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO);
-                    // 打开闪光灯
-                    previewBuild.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON_AUTO_FLASH);
-
+                    // 设置闪光灯
+                    previewBuild.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON);
+                    previewBuild.set(CaptureRequest.FLASH_MODE, CaptureRequest.FLASH_MODE_OFF);
                     session.setRepeatingRequest(previewBuild.build(), null, handler);
                 } catch (CameraAccessException e) {
                     e.printStackTrace();
@@ -135,6 +139,7 @@ public class CameraUtils {
 
     public void openCamera(String cameraId) {
         try {
+            this.cameraId = cameraId;
             cameraManager.openCamera(cameraId, cameraCallback, null);
         } catch (CameraAccessException e) {
             e.printStackTrace();
@@ -142,7 +147,6 @@ public class CameraUtils {
     }
 
     public int switchCamera() {
-        String cameraId;
         int rotation;
         cameraDevice.close();
         if (cameraDevice.getId().equals(String.valueOf(CameraCharacteristics.LENS_FACING_BACK))) {
@@ -159,7 +163,12 @@ public class CameraUtils {
 
     public void switchFlash(boolean isOpen){
         try {
-            cameraManager.setTorchMode("0", isOpen);
+            previewBuild = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
+            previewBuild.set(CaptureRequest.FLASH_MODE, isOpen ? CaptureRequest.FLASH_MODE_TORCH : CaptureRequest.FLASH_MODE_OFF);
+            for(Surface surface : surfaceList){
+                previewBuild.addTarget(surface);
+            }
+            cSession.setRepeatingRequest(previewBuild.build(), null, handler);
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }

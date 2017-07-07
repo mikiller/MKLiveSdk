@@ -2,6 +2,7 @@ package com.mikiller.ndk.mklivesdk;
 
 import android.graphics.ImageFormat;
 import android.hardware.Camera;
+import android.util.Log;
 import android.view.SurfaceHolder;
 
 import java.util.List;
@@ -100,9 +101,11 @@ public class OldCameraUtils {
 
     public void switchFlash(boolean isOpen){
         Camera.Parameters parameters = mCamera.getParameters();
-        if(isOpen)
+        if(parameters.getSupportedFlashModes() == null)
+            return;
         parameters.setFlashMode(isOpen ? Camera.Parameters.FLASH_MODE_TORCH : Camera.Parameters.FLASH_MODE_OFF);
         mCamera.setParameters(parameters);
+        mCamera.startPreview();
     }
 
     public void release() {
