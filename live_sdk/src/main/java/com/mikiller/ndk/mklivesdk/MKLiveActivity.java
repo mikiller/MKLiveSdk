@@ -1,6 +1,7 @@
 package com.mikiller.ndk.mklivesdk;
 
 import android.annotation.SuppressLint;
+import android.graphics.ImageFormat;
 import android.os.Bundle;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
@@ -39,31 +40,10 @@ public class MKLiveActivity extends AppCompatActivity {
         flashCamerabutton = (ImageButton) findViewById(R.id.FlashCamerabutton);
         ckb_play = (CheckBox) findViewById(R.id.ckb_play);
 
-        liveSDK.init(new MKLiveSDK.EncodeCallback() {
-            @Override
-            public void onPermissionFailed(String permission) {
-                new AlertDialog.Builder(MKLiveActivity.this).setTitle("需要权限").setMessage(permission + "权限被禁止").setPositiveButton("确定", null).show();
-            }
-
-            @Override
-            public void onEncodeFailed(final int error) {
-
-                ckb_play.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (ckb_play != null)
-                            ckb_play.setChecked(false);
-                        if (error == MKLiveSDK.NETWORK_ERR) {
-                            isNetWorkError = true;
-                            new AlertDialog.Builder(MKLiveActivity.this).setTitle("网络故障").setMessage("直播中断，请检查网络").setPositiveButton("确定", null).show();
-                        }
-                    }
-                });
-
-            }
-        }, surfaceViewEx.getHolder());
-
         initView(liveSDK.getPreViewWidth(), liveSDK.getPreViewHeight());
+
+//        initView(liveSDK.getPreViewWidth(), liveSDK.getPreViewHeight());
+
     }
 
     private void initView(final int width, final int height) {
@@ -71,14 +51,38 @@ public class MKLiveActivity extends AppCompatActivity {
             @Override
             public void surfaceCreated(SurfaceHolder holder) {
                 Log.e(TAG, "surface created");
-                holder.setFixedSize(width, height);
+                //holder.setFixedSize(width, height);
                 holder.setKeepScreenOn(true);
+                liveSDK.init(new MKLiveSDK.EncodeCallback() {
+                    @Override
+                    public void onPermissionFailed(String permission) {
+                        new AlertDialog.Builder(MKLiveActivity.this).setTitle("需要权限").setMessage(permission + "权限被禁止").setPositiveButton("确定", null).show();
+                    }
+
+                    @Override
+                    public void onEncodeFailed(final int error) {
+
+                        ckb_play.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                if (ckb_play != null)
+                                    ckb_play.setChecked(false);
+                                if (error == MKLiveSDK.NETWORK_ERR) {
+                                    isNetWorkError = true;
+                                    new AlertDialog.Builder(MKLiveActivity.this).setTitle("网络故障").setMessage("直播中断，请检查网络").setPositiveButton("确定", null).show();
+                                }
+                            }
+                        });
+
+                    }
+                }, holder/*surfaceViewEx.getHolder()*/);
+                liveSDK.openCamera();
             }
 
             @Override
             public void surfaceChanged(SurfaceHolder holder, int format, int w, int h) {
                 if (width == w) {
-                    liveSDK.openCamera();
+                    liveSDK.startPreview(w, h, holder);
                 }
             }
 

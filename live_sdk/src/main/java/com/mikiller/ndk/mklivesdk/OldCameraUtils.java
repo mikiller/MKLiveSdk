@@ -40,11 +40,12 @@ public class OldCameraUtils {
         orientation = ori;
 
         mCamera = Camera.open(cameraId);
-        mCamera.autoFocus(null);
+
         mCamera.setDisplayOrientation(orientation);
         Camera.Parameters parameters = mCamera.getParameters();
         List<String> focusModesList = parameters.getSupportedFocusModes();
         for (int i = 0; i < focusModesList.size(); i++) {
+            Log.e(TAG, focusModesList.get(i).toString());
         }
         if (focusModesList.contains(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE)) {
             parameters.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE);

@@ -17,6 +17,7 @@ import android.os.Handler;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.util.Pair;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.SurfaceHolder;
 
 import java.util.concurrent.ExecutorService;
@@ -30,7 +31,7 @@ public class MKLiveSDK {
     private static final String TAG = MKLiveSDK.class.getSimpleName();
 
     public enum VIDEOQUALITY {
-        STANDARD(800000, 768, 432), HIGH(1600000, 768, 432), ORIGINAL(3200000, 1280, 720);
+        /*STANDARD(800000, 768, 432)*/STANDARD(800000, 1280, 720), HIGH(1600000, 1280, 720), ORIGINAL(3200000, 1280, 720);
         private int bitRate;
         private Pair<Integer, Integer> srcSize;
 
@@ -51,6 +52,7 @@ public class MKLiveSDK {
             return srcSize.second;
         }
     }
+
     public static final int VIDEO_STANDARD = 1, VIDEO_HIGH = 2, VIDEO_ORIGINAL = 3;
     public static final int AUDIO_STANDARD = 64000, AUDIO_HIGH = 128000, AUDIO_ORIGINAL = 320000;
     public static final int FRONT_CAMERA = 1, BACK_CAMERA = 0;
@@ -77,7 +79,7 @@ public class MKLiveSDK {
     EncodeCallback encodeCallback;
 
     private MKLiveSDK() {
-        newApi = Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP;
+        newApi = Build.VERSION.SDK_INT > Build.VERSION_CODES.LOLLIPOP_MR1;
     }
 
     private static class CREATOR {
@@ -136,7 +138,6 @@ public class MKLiveSDK {
     }
 
     public void init(EncodeCallback encodeCallback, SurfaceHolder... extSurfaceHolders) {
-        initFFMpeg();
         initCamera(encodeCallback, extSurfaceHolders);
         initAudioRecord();
         executorService = Executors.newFixedThreadPool(2);
@@ -157,9 +158,21 @@ public class MKLiveSDK {
         }
         if (newApi) {
             cameraUtils = CameraUtils.getInstance(mContext);
-            cameraUtils.init(quality.getWidth(), quality.getHeight(), ImageFormat.YUV_420_888, extSurfaceHolders);
+            cameraUtils.init(quality.getWidth(), quality.getHeight(), new CameraUtils.InitCallback() {
+                @Override
+                public void onInitSuccess() {
+                    initFFMpeg();
+                    ((Activity)mContext).runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            for(SurfaceHolder holder : extSurfaceHolders){
+                                holder.setFixedSize(quality.getWidth(), quality.getHeight());
+                            }
+                        }
+                    });
+                }
+            }, ImageFormat.YUV_420_888, extSurfaceHolders);
             cameraUtils.setPreviewCallback(new ImageReader.OnImageAvailableListener() {
-
                 @Override
                 public void onImageAvailable(ImageReader reader) {
                     Image img = reader.acquireNextImage();
@@ -172,7 +185,7 @@ public class MKLiveSDK {
             new Thread(new Runnable() {
                 @Override
                 public void run() {
-            oldCameraUtils.initCamera(extSurfaceHolders[0], quality.getWidth(), quality.getHeight(), cameraId, cameraId == 1 ? (360 - orientation)%360 : orientation );
+                    oldCameraUtils.initCamera(extSurfaceHolders[0], quality.getWidth(), quality.getHeight(), cameraId, cameraId == 1 ? (360 - orientation) % 360 : orientation);
                     oldCameraUtils.setPreviewCallback(new Camera.PreviewCallback() {
                         @Override
                         public void onPreviewFrame(byte[] data, Camera camera) {
@@ -180,6 +193,7 @@ public class MKLiveSDK {
                             liveRunnable.setParams(data);
                         }
                     });
+                    initFFMpeg();
                 }
             }).start();
 
@@ -198,6 +212,13 @@ public class MKLiveSDK {
     public void openCamera() {
         if (newApi && cameraUtils != null) {
             cameraUtils.openCamera(String.valueOf(cameraId));
+        }
+    }
+
+    public void startPreview(int w, int h, SurfaceHolder... holders){
+        if(newApi) {
+            cameraUtils.setSurfaceList(w, h, ImageFormat.YUV_420_888, holders);
+            cameraUtils.startPreview();
         }
     }
 
@@ -223,16 +244,16 @@ public class MKLiveSDK {
         }
     }
 
-    public void switchFlash(boolean isOpen){
-        if(newApi){
+    public void switchFlash(boolean isOpen) {
+        if (newApi) {
             cameraUtils.switchFlash(isOpen);
-        }else{
+        } else {
             oldCameraUtils.switchFlash(isOpen);
         }
     }
 
     public void start() {
-        if(!isStart) {
+        if (!isStart) {
             isStart = true;
             NDKImpl.initTS();
         }
@@ -250,14 +271,13 @@ public class MKLiveSDK {
         liveRunnable.isLive = false;
         isStart = false;
         if (newApi) {
-            if(cameraUtils != null)
+            if (cameraUtils != null)
                 cameraUtils.release();
-        }
-        else {
-            if(oldCameraUtils != null)
+        } else {
+            if (oldCameraUtils != null)
                 oldCameraUtils.release();
         }
-        if(audioUtils != null)
+        if (audioUtils != null)
             audioUtils.release();
         NDKImpl.close();
     }

@@ -63,15 +63,19 @@ public class AudioUtils {
     }
 
     public void start(){
-        audioRecord.startRecording();
+        if(audioRecord != null && audioRecord.getRecordingState() == AudioRecord.STATE_INITIALIZED)
+            audioRecord.startRecording();
     }
 
     public void pause(){
-        audioRecord.stop();
+        if(audioRecord != null && audioRecord.getRecordingState() == AudioRecord.STATE_INITIALIZED) {
+            audioRecord.stop();
+        }
     }
 
     public void release(){
         audioRecord.stop();
         audioRecord.release();
+        audioRecord = null;
     }
 }

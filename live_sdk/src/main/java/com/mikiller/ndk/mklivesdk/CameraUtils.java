@@ -2,6 +2,7 @@ package com.mikiller.ndk.mklivesdk;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.graphics.ImageFormat;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
@@ -9,16 +10,22 @@ import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureRequest;
+import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
 import android.media.ImageReader;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.util.Log;
+import android.util.Size;
 import android.view.Surface;
 import android.view.SurfaceHolder;
+import android.view.SurfaceView;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -36,10 +43,12 @@ public class CameraUtils {
     ImageReader imageReader;
     HandlerThread cameraThread;
     Handler handler;
+    ImageReader.OnImageAvailableListener previewListener;
     CameraDevice.StateCallback cameraCallback;
     CameraCaptureSession.StateCallback captureCallback;
     List<Surface> surfaceList = new ArrayList<>();
     ByteBuffer nv21;
+    boolean hasInit = false;
 
     private CameraUtils() {
     }
@@ -58,24 +67,23 @@ public class CameraUtils {
         return VideoUtilsFactory.instance;
     }
 
-    public void init(int width, int height, int format, SurfaceHolder... extSurfaceHolders) {
+    public void init(final int width, final int height, final InitCallback initCallback, final int format, final SurfaceHolder... extSurfaceHolders) {
         cameraThread = new HandlerThread("camera2");
         cameraThread.start();
         handler = new Handler(cameraThread.getLooper());
-        imageReader = ImageReader.newInstance(width, height, format, 1);
-        surfaceList.add(imageReader.getSurface());
-        if (extSurfaceHolders != null) {
-            for (SurfaceHolder holder : extSurfaceHolders) {
-                surfaceList.add(holder.getSurface());
-            }
-        }
 
         cameraCallback = new CameraDevice.StateCallback() {
             @Override
             public void onOpened(CameraDevice camera) {
                 Log.e(TAG, "camera opened");
                 cameraDevice = camera;
-                startPreview();
+
+                if(!hasInit) {
+                    initCallback.onInitSuccess();
+                    hasInit = true;
+                }else
+                    startPreview();
+                nv21 = null;
             }
 
             @Override
@@ -99,7 +107,10 @@ public class CameraUtils {
             public void onConfigured(CameraCaptureSession session) {
                 try {
                     cSession = session;
+
                     previewBuild = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_RECORD);
+
+
                     for (Surface surface : surfaceList) {
                         previewBuild.addTarget(surface);
                     }
@@ -123,6 +134,19 @@ public class CameraUtils {
         };
     }
 
+    public void setSurfaceList(final int width, final int height, final int format, final SurfaceHolder... extSurfaceHolders){
+        surfaceList.clear();
+        imageReader = ImageReader.newInstance(width, height, format, 1);
+        if (previewListener != null)
+            imageReader.setOnImageAvailableListener(previewListener, handler);
+        surfaceList.add(imageReader.getSurface());
+        if (extSurfaceHolders != null) {
+            for (SurfaceHolder holder : extSurfaceHolders) {
+                surfaceList.add(holder.getSurface());
+            }
+        }
+    }
+
     public void startPreview() {
         try {
             Log.e(TAG, "start preview and set captureCallback");
@@ -133,14 +157,15 @@ public class CameraUtils {
     }
 
     public void setPreviewCallback(ImageReader.OnImageAvailableListener listener) {
-        if (listener != null)
-            imageReader.setOnImageAvailableListener(listener, handler);
+        previewListener = listener;
+
+
     }
 
     public void openCamera(String cameraId) {
         try {
             this.cameraId = cameraId;
-            cameraManager.openCamera(cameraId, cameraCallback, null);
+            cameraManager.openCamera(cameraId, cameraCallback, handler);
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
@@ -156,7 +181,6 @@ public class CameraUtils {
             cameraId = String.valueOf(CameraCharacteristics.LENS_FACING_BACK);
             rotation = 270;
         }
-
         openCamera(cameraId);
         return rotation;
     }
@@ -197,6 +221,10 @@ public class CameraUtils {
         surfaceList.clear();
         cameraThread.quitSafely();
         nv21 = null;
+        hasInit = false;
     }
 
+    public interface InitCallback{
+        void onInitSuccess();
+    }
 }
